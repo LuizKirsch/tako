@@ -172,11 +172,16 @@ async function wizard(init: InitProject): Promise<number> {
   const summary = ROLES.map((role) => `${role.padEnd(12)} ${outcome.config.roles[role]?.name ?? "(none)"}`);
   p.note(summary.join("\n"), `${project.title} / ${field.name}`);
 
-  const files = [".gh-relay.json"];
-  if (outcome.rulesFileCreated) files.push(outcome.config.rulesFile);
-  else p.log.info(`Kept your existing ${outcome.config.rulesFile}.`);
+  if (outcome.gitignoreUpdated) {
+    p.log.info("Added .gh-relay.json to .gitignore: it identifies your project and stays on this machine.");
+  }
+  if (!outcome.rulesFileCreated) p.log.info(`Kept your existing ${outcome.config.rulesFile}.`);
 
-  p.outro(`Done. Commit ${files.join(" and ")}, then run gh-relay.`);
+  p.outro(
+    outcome.rulesFileCreated
+      ? `Done. Commit ${outcome.config.rulesFile} (never .gh-relay.json), then run gh-relay.`
+      : "Done. Run gh-relay to open the board.",
+  );
   return 0;
 }
 

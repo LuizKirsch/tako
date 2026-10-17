@@ -9,7 +9,7 @@
 //   validateRoles() -> live feedback while the user maps roles
 //   finish()        -> builds, saves the config and creates the rules file
 
-import { createConfig, type GhRelayConfig } from "../domain/config.js";
+import { createConfig, ignoreConfigFile, type GhRelayConfig } from "../domain/config.js";
 import { validateRoleMapping, type ColumnField, type RoleMapping, type RoleMappingError } from "../domain/roles.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { RepoFiles } from "../ports/files.js";
@@ -37,8 +37,10 @@ export interface InitChoices {
   baseBranch: string;
 }
 
+const GITIGNORE = ".gitignore";
+
 export type InitOutcome =
-  | { ok: true; config: GhRelayConfig; rulesFileCreated: boolean }
+  | { ok: true; config: GhRelayConfig; rulesFileCreated: boolean; gitignoreUpdated: boolean }
   | { ok: false; errors: RoleMappingError[] };
 
 export class InitProject {
@@ -84,13 +86,16 @@ export class InitProject {
     if (!created.ok) return { ok: false, errors: created.errors };
 
     const config = created.value;
+    // Ignore the config before writing it, so it is never left committable.
+    const gitignore = ignoreConfigFile(await this.deps.files.readText(GITIGNORE));
+    if (gitignore !== undefined) await this.deps.files.writeText(GITIGNORE, gitignore);
     await saveConfig(this.deps.files, config);
 
     // Never overwrite rules the user already wrote (re-running init is common).
     const rulesFileCreated = !(await this.deps.files.exists(config.rulesFile));
     if (rulesFileCreated) await this.deps.files.writeText(config.rulesFile, RECOMMENDED_RULES);
 
-    return { ok: true, config, rulesFileCreated };
+    return { ok: true, config, rulesFileCreated, gitignoreUpdated: gitignore !== undefined };
   }
 
   private async installedAgents(): Promise<AgentAdapter[]> {

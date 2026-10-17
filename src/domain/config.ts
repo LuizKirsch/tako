@@ -1,7 +1,9 @@
 // The .gh-relay.json config: shape, parsing and drift detection.
 //
-// The file has no secrets and can be committed. IDs are the source of truth;
-// names are kept only for messages ("column 'Pronto para IA' was removed").
+// The file identifies the user's project (IDs, titles), so it stays on the
+// machine: init adds it to .gitignore and it must never be committed.
+// IDs are the source of truth; names are kept only for messages
+// ("column 'Pronto para IA' was removed").
 //
 // Parsing is hand-written instead of using a schema library: the shape is
 // small, and this keeps the dependency list short. If the config grows,
@@ -21,6 +23,19 @@ import {
 export const CONFIG_FILE = ".gh-relay.json";
 export const CONFIG_VERSION = 1;
 export const DEFAULT_RULES_FILE = ".gh-relay/rules.md";
+
+// Returns the .gitignore content with CONFIG_FILE added, or undefined when it
+// is already listed. Keeps the file's line endings.
+// ponytail: exact entries only; a wildcard that happens to match is not detected.
+export function ignoreConfigFile(gitignore: string | undefined): string | undefined {
+  const current = gitignore ?? "";
+  const lines = current.split(/\r?\n/).map((line) => line.trim());
+  if (lines.includes(CONFIG_FILE) || lines.includes(`/${CONFIG_FILE}`)) return undefined;
+
+  const eol = current.includes("\r\n") ? "\r\n" : "\n";
+  const separator = current === "" || current.endsWith("\n") ? "" : eol;
+  return `${current}${separator}${CONFIG_FILE}${eol}`;
+}
 
 export type OwnerType = "user" | "organization";
 

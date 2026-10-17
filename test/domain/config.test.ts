@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createConfig, detectConfigDrift, parseConfig, type GhRelayConfig } from "../../src/domain/config.js";
+import {
+  createConfig,
+  detectConfigDrift,
+  ignoreConfigFile,
+  parseConfig,
+  type GhRelayConfig,
+} from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 
 const field: ColumnField = {
@@ -101,5 +107,21 @@ describe("detectConfigDrift", () => {
 
   it("reports a removed field", () => {
     expect(detectConfigDrift(validConfig, [])).toEqual([{ kind: "field_missing", fieldName: "Status" }]);
+  });
+});
+
+describe("ignoreConfigFile", () => {
+  it("creates the entry when there is no .gitignore", () => {
+    expect(ignoreConfigFile(undefined)).toBe(".gh-relay.json\n");
+  });
+
+  it("appends on a new line, keeping CRLF endings", () => {
+    expect(ignoreConfigFile("dist/")).toBe("dist/\n.gh-relay.json\n");
+    expect(ignoreConfigFile("dist/\r\n")).toBe("dist/\r\n.gh-relay.json\r\n");
+  });
+
+  it("returns undefined when the file is already listed", () => {
+    expect(ignoreConfigFile("dist/\r\n.gh-relay.json\r\n")).toBeUndefined();
+    expect(ignoreConfigFile("  /.gh-relay.json  \n")).toBeUndefined();
   });
 });

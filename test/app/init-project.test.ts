@@ -73,6 +73,22 @@ describe("InitProject.finish", () => {
     expect(files.files.get(".gh-relay/rules.md")).toBe(RECOMMENDED_RULES);
   });
 
+  it("adds the config to .gitignore so it is never committed", async () => {
+    const { init, files } = setup(new MemoryFiles({ ".gitignore": "node_modules/\n" }));
+    const outcome = await init.finish(choices);
+
+    expect(outcome).toMatchObject({ ok: true, gitignoreUpdated: true });
+    expect(files.files.get(".gitignore")).toBe("node_modules/\n.gh-relay.json\n");
+  });
+
+  it("leaves .gitignore alone when the config is already ignored", async () => {
+    const { init, files } = setup(new MemoryFiles({ ".gitignore": "/.gh-relay.json\n" }));
+    const outcome = await init.finish(choices);
+
+    expect(outcome).toMatchObject({ ok: true, gitignoreUpdated: false });
+    expect(files.files.get(".gitignore")).toBe("/.gh-relay.json\n");
+  });
+
   it("never overwrites rules the user already has", async () => {
     const { init, files } = setup(new MemoryFiles({ ".gh-relay/rules.md": "my rules" }));
     const outcome = await init.finish(choices);
