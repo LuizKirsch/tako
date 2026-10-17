@@ -4,6 +4,7 @@
 // skipped instead of crashing, because an org can deny access to its
 // projects and GitHub then returns nulls inside otherwise valid data.
 
+import type { Card } from "../../domain/board.js";
 import type { ColumnField } from "../../domain/roles.js";
 import type { ProjectSummary } from "../../ports/github.js";
 
@@ -51,6 +52,44 @@ export function parseColumnFields(data: unknown): ColumnField[] {
   }
   return fields;
 }
+
+export function parseCards(data: unknown, fieldId: string): Card[] {
+  const cards: Card[] = [];
+  for (const node of nodes(get(get(get(data, "node"), "items"), "nodes"))) {
+    if (node.isArchived === true || typeof node.id !== "string") continue;
+    const content = get(node, "content");
+    const kind = CONTENT_KINDS[String(get(content, "__typename"))];
+    const title = get(content, "title");
+    // Redacted items (no access to the repo) come back without content.
+    if (!kind || typeof title !== "string") continue;
+
+    const value = nodes(get(get(node, "fieldValues"), "nodes")).find(
+      (v) => get(get(v, "field"), "id") === fieldId,
+    );
+    const number = get(content, "number");
+    const url = get(content, "url");
+    const repo = get(get(content, "repository"), "nameWithOwner");
+    const state = get(content, "state");
+
+    cards.push({
+      itemId: node.id,
+      optionId: typeof value?.optionId === "string" ? value.optionId : undefined,
+      kind,
+      title,
+      ...(typeof number === "number" && { number }),
+      ...(typeof url === "string" && { url }),
+      ...(typeof repo === "string" && { repo }),
+      closed: state === "CLOSED" || state === "MERGED",
+    });
+  }
+  return cards;
+}
+
+const CONTENT_KINDS: Record<string, Card["kind"]> = {
+  Issue: "issue",
+  PullRequest: "pull_request",
+  DraftIssue: "draft",
+};
 
 function toProject(node: Raw, owner: string, ownerType: ProjectSummary["ownerType"]): ProjectSummary | undefined {
   const { id, number, title, closed } = node;

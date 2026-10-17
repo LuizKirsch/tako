@@ -7,7 +7,7 @@
 
 import { writeFileSync } from "node:fs";
 import { execaGhRunner } from "../src/infra/github/gh-runner.js";
-import { LIST_COLUMN_FIELDS, LIST_PROJECTS } from "../src/infra/github/queries.js";
+import { LIST_CARDS, LIST_COLUMN_FIELDS, LIST_PROJECTS } from "../src/infra/github/queries.js";
 import { parseProjects } from "../src/infra/github/parse.js";
 
 const dir = new URL("../test/fixtures/github/", import.meta.url);
@@ -32,4 +32,5 @@ if (!projectId) {
 }
 
 writeFileSync(new URL("list-column-fields.sample.json", dir), await query(LIST_COLUMN_FIELDS, { projectId }));
+writeFileSync(new URL("list-cards.json", dir), await query(LIST_CARDS, { projectId }));
 console.log(`Fixtures captured (column fields from ${projectId}). Run npm test to check the parsers.`);

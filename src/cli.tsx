@@ -4,16 +4,17 @@
 // into the use cases. Everything below receives its dependencies, which is
 // what lets the use cases be tested with fakes.
 
-import { Box, render, Text } from "ink";
 import { InitProject } from "./app/init-project.js";
+import { loadBoard } from "./app/load-board.js";
 import { AGENTS } from "./infra/agents/registry.js";
 import { NodeRepoFiles } from "./infra/fs/node-repo-files.js";
 import { GhCliGitHub } from "./infra/github/gh-cli-github.js";
+import { runBoard } from "./ui/board/run-board.js";
 import { runInitWizard } from "./ui/init/run-init-wizard.js";
 
 const USAGE = `Usage:
   gh-relay init    configure gh-relay for this repository
-  gh-relay         open the board (coming soon)`;
+  gh-relay         open the board`;
 
 const [command] = process.argv.slice(2);
 
@@ -23,15 +24,11 @@ switch (command) {
     process.exitCode = await runInitWizard(init);
     break;
   }
-  case undefined:
-    // Placeholder until the board issue lands.
-    render(
-      <Box flexDirection="column" padding={1}>
-        <Text bold>gh-relay</Text>
-        <Text dimColor>The board is not built yet. Run `gh-relay init` to configure this repository.</Text>
-      </Box>,
-    );
+  case undefined: {
+    const deps = { github: new GhCliGitHub(), files: new NodeRepoFiles() };
+    process.exitCode = await runBoard(() => loadBoard(deps));
     break;
+  }
   case "-h":
   case "--help":
     console.log(USAGE);

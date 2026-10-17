@@ -13,8 +13,9 @@ import {
   type GhRunner,
   type InteractiveGhRunner,
 } from "./gh-runner.js";
-import { LIST_COLUMN_FIELDS, LIST_PROJECTS } from "./queries.js";
-import { parseColumnFields, parseProjects } from "./parse.js";
+import { LIST_CARDS, LIST_COLUMN_FIELDS, LIST_PROJECTS } from "./queries.js";
+import { parseCards, parseColumnFields, parseProjects } from "./parse.js";
+import type { Card } from "../../domain/board.js";
 
 interface GraphQLError {
   type?: string;
@@ -43,6 +44,11 @@ export class GhCliGitHub implements GitHubPort {
 
   async listColumnFields(projectId: string): Promise<ColumnField[]> {
     return parseColumnFields(await this.graphql(LIST_COLUMN_FIELDS, { projectId }));
+  }
+
+  // ponytail: first 100 items only; paginate with pageInfo/endCursor when a board outgrows it.
+  async listCards(projectId: string, fieldId: string): Promise<Card[]> {
+    return parseCards(await this.graphql(LIST_CARDS, { projectId }), fieldId);
   }
 
   // Runs a query and returns `data`. Partial data (some nodes denied) is

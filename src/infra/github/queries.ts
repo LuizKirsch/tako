@@ -23,6 +23,37 @@ export const LIST_PROJECTS = /* GraphQL */ `
   }
 `;
 
+// Every single-select value is fetched (not only the column field) because
+// GraphQL cannot filter field values by field ID; the parser picks the right one.
+export const LIST_CARDS = /* GraphQL */ `
+  query ListCards($projectId: ID!) {
+    node(id: $projectId) {
+      ... on ProjectV2 {
+        items(first: 100) {
+          nodes {
+            id
+            isArchived
+            fieldValues(first: 30) {
+              nodes {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  optionId
+                  field { ... on ProjectV2SingleSelectField { id } }
+                }
+              }
+            }
+            content {
+              __typename
+              ... on Issue { number title url state repository { nameWithOwner } }
+              ... on PullRequest { number title url state repository { nameWithOwner } }
+              ... on DraftIssue { title }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const LIST_COLUMN_FIELDS = /* GraphQL */ `
   query ListColumnFields($projectId: ID!) {
     node(id: $projectId) {

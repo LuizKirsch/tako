@@ -1,5 +1,6 @@
 // In-memory implementations of the ports, shared by use-case tests.
 
+import type { Card } from "../../src/domain/board.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 import type { AgentAdapter } from "../../src/ports/agent.js";
 import type { RepoFiles } from "../../src/ports/files.js";
@@ -26,7 +27,11 @@ export class FakeGitHub implements GitHubPort {
   constructor(
     private readonly projects: ProjectSummary[],
     private readonly fieldsByProject: Record<string, ColumnField[]>,
+    private readonly cardsByProject: Record<string, Card[]> = {},
   ) {}
+  async listCards(projectId: string) {
+    return this.cardsByProject[projectId] ?? [];
+  }
   async listProjects() {
     return this.projects;
   }
