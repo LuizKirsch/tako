@@ -1,0 +1,45 @@
+{
+  "name": "gh-relay",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "vitest",
+    "dev": "tsx src/cli.tsx",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LuizKirsch/gh-relay.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/LuizKirsch/gh-relay/issues"
+  },
+  "homepage": "https://github.com/LuizKirsch/gh-relay#readme",
+  "bin": {
+    "gh-relay": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "execa": "^10.1.1",
+    "ink": "^8.0.0",
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "ink-testing-library": "^4.0.0",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

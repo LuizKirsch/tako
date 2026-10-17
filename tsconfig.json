@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    // tsup bundles; TypeScript only type-checks.
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    // Ink components are React; new JSX transform, no React import needed.
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test", "tsup.config.ts"]
+}
