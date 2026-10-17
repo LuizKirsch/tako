@@ -70,6 +70,7 @@ export function parseCards(data: unknown, fieldId: string): Card[] {
     const url = get(content, "url");
     const repo = get(get(content, "repository"), "nameWithOwner");
     const state = get(content, "state");
+    const body = get(content, "body");
 
     cards.push({
       itemId: node.id,
@@ -80,9 +81,17 @@ export function parseCards(data: unknown, fieldId: string): Card[] {
       ...(typeof url === "string" && { url }),
       ...(typeof repo === "string" && { repo }),
       closed: state === "CLOSED" || state === "MERGED",
+      body: typeof body === "string" ? body : "",
+      labels: names(get(content, "labels"), "name"),
+      assignees: names(get(content, "assignees"), "login"),
     });
   }
   return cards;
+}
+
+// `{ nodes: [{ name: "a" }, ...] }` -> ["a", ...]
+function names(connection: unknown, key: string): string[] {
+  return nodes(get(connection, "nodes")).flatMap((n) => (typeof n[key] === "string" ? [n[key]] : []));
 }
 
 const CONTENT_KINDS: Record<string, Card["kind"]> = {

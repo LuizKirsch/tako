@@ -14,6 +14,9 @@ export interface Card {
   url?: string;
   repo?: string; // "owner/name"
   closed: boolean;
+  body: string; // markdown, "" when empty
+  labels: string[];
+  assignees: string[]; // logins
 }
 
 export interface BoardColumn {

@@ -4,13 +4,15 @@
 // Boards often have more columns than fit the terminal, so only as many as
 // fit are shown (each at least MIN_COLUMN_WIDTH wide) and the view scrolls
 // sideways to keep the selected column visible.
-// Read-only for now; picking a card arrives with the StartTask issue.
+// Enter opens the card's details (TaskView). Starting the work on a card
+// arrives with the StartTask issue.
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
 import type { BoardColumn, Card } from "../../domain/board.js";
 import type { ConfigDrift } from "../../domain/config.js";
 import { ROLE_DESCRIPTIONS } from "../../domain/roles.js";
+import { TaskView } from "./TaskView.js";
 
 const MIN_COLUMN_WIDTH = 26;
 // Title, column tabs, borders, url and help lines around the cards.
@@ -34,18 +36,21 @@ export function Board({ title, columns, drift }: BoardProps) {
   // Start on the "ready" column: it is where the work begins.
   const [col, setCol] = useState(() => Math.max(0, columns.findIndex((c) => c.role === "ready")));
   const [row, setRow] = useState(0);
+  const [open, setOpen] = useState(false);
   const cards = columns[col]?.cards ?? [];
   const selectedRow = Math.min(row, Math.max(0, cards.length - 1));
+  const selected = cards[selectedRow];
 
   useInput(
     (input, key) => {
       if (input === "q" || key.escape) exit();
+      if (key.return && selected) setOpen(true);
       if (key.leftArrow) setCol((c) => Math.max(0, c - 1));
       if (key.rightArrow) setCol((c) => Math.min(columns.length - 1, c + 1));
       if (key.upArrow) setRow(Math.max(0, selectedRow - 1));
       if (key.downArrow) setRow(Math.min(Math.max(0, cards.length - 1), selectedRow + 1));
     },
-    { isActive: isRawModeSupported },
+    { isActive: isRawModeSupported && !open },
   );
 
   const size = useWindowSize();
@@ -56,7 +61,18 @@ export function Board({ title, columns, drift }: BoardProps) {
   // Keep the selected column roughly centered among the visible ones.
   const first = Math.min(Math.max(0, col - Math.floor(fit / 2)), columns.length - fit);
   const shown = columns.slice(first, first + fit);
-  const selected = cards[selectedRow];
+
+  if (open && selected) {
+    return (
+      <TaskView
+        card={selected}
+        columnName={columns[col]?.name ?? ""}
+        onClose={() => setOpen(false)}
+        onQuit={exit}
+        isActive={isRawModeSupported}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" paddingX={1}>
@@ -89,7 +105,7 @@ export function Board({ title, columns, drift }: BoardProps) {
       <Text dimColor wrap="truncate-end">
         {selected?.url ?? " "}
       </Text>
-      <Text dimColor>←/→ column · ↑/↓ card · q quit</Text>
+      <Text dimColor>←/→ column · ↑/↓ card · Enter open · q quit</Text>
     </Box>
   );
 }

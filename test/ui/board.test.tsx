@@ -12,7 +12,11 @@ const card = (n: number, title: string): Card => ({
   title,
   number: n,
   repo: "LuizKirsch/portfolio",
+  url: `https://github.com/LuizKirsch/portfolio/issues/${n}`,
   closed: false,
+  body: `## Checklist\n- [ ] Body of ${title}`,
+  labels: ["conteúdo"],
+  assignees: [],
 });
 
 const column = (name: string, cards: Card[] = [], role?: BoardColumn["role"]): BoardColumn => ({
@@ -30,6 +34,8 @@ const columns: BoardColumn[] = [
 const RIGHT = "\u001B[C";
 const LEFT = "\u001B[D";
 const DOWN = "\u001B[B";
+const ENTER = "\r";
+const ESC = "\u001B";
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 describe("Board", () => {
@@ -76,6 +82,35 @@ describe("Board", () => {
     expect(lastFrame()).toContain("Col F");
     expect(lastFrame()).toContain("◀ 3 more");
     expect(lastFrame()).not.toContain("Col A");
+  });
+
+  it("opens the selected card with Enter and goes back with Esc", async () => {
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} />);
+    await tick();
+
+    stdin.write(DOWN);
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    const detail = lastFrame() ?? "";
+    expect(detail).toContain("#4 Second task");
+    expect(detail).toContain("LuizKirsch/portfolio · Pronto para IA · open");
+    expect(detail).toContain("conteúdo");
+    expect(detail).toContain("- [ ] Body of Second task");
+    expect(detail).not.toContain("To do");
+
+    stdin.write(ESC);
+    await tick();
+    expect(lastFrame()).toContain("To do");
+    expect(lastFrame()).toContain("› #4");
+  });
+
+  it("does nothing on Enter in an empty column", async () => {
+    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} />);
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    expect(lastFrame()).toContain("Empty (0)");
   });
 
   it("shows drift warnings", () => {

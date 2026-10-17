@@ -29,7 +29,19 @@ const config: GhRelayConfig = {
   rulesFile: ".gh-relay/rules.md",
 };
 
-const cards: Card[] = [{ itemId: "I1", optionId: "o-ready", kind: "issue", title: "Do it", number: 3, closed: false }];
+const cards: Card[] = [
+  {
+    itemId: "I1",
+    optionId: "o-ready",
+    kind: "issue",
+    title: "Do it",
+    number: 3,
+    closed: false,
+    body: "",
+    labels: [],
+    assignees: [],
+  },
+];
 
 const configured = () => new MemoryFiles({ [CONFIG_FILE]: JSON.stringify(config) });
 

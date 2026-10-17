@@ -18,6 +18,9 @@ const card = (itemId: string, optionId: string | undefined): Card => ({
   kind: "issue",
   title: itemId,
   closed: false,
+  body: "",
+  labels: [],
+  assignees: [],
 });
 
 describe("buildBoard", () => {

@@ -25,6 +25,7 @@ export const LIST_PROJECTS = /* GraphQL */ `
 
 // Every single-select value is fetched (not only the column field) because
 // GraphQL cannot filter field values by field ID; the parser picks the right one.
+// Bodies come with the list so opening a card is instant (no second request).
 export const LIST_CARDS = /* GraphQL */ `
   query ListCards($projectId: ID!) {
     node(id: $projectId) {
@@ -43,9 +44,22 @@ export const LIST_CARDS = /* GraphQL */ `
             }
             content {
               __typename
-              ... on Issue { number title url state repository { nameWithOwner } }
-              ... on PullRequest { number title url state repository { nameWithOwner } }
-              ... on DraftIssue { title }
+              ... on Issue {
+                number title url state body
+                repository { nameWithOwner }
+                labels(first: 20) { nodes { name } }
+                assignees(first: 10) { nodes { login } }
+              }
+              ... on PullRequest {
+                number title url state body
+                repository { nameWithOwner }
+                labels(first: 20) { nodes { name } }
+                assignees(first: 10) { nodes { login } }
+              }
+              ... on DraftIssue {
+                title body
+                assignees(first: 10) { nodes { login } }
+              }
             }
           }
         }
