@@ -1,0 +1,23 @@
+{
+  "data": {
+    "viewer": {
+      "login": "LuizKirsch",
+      "projectsV2": {
+        "nodes": [
+          { "id": "PVT_user_old", "number": 1, "title": "Old board", "closed": true },
+          { "id": "PVT_user_relay", "number": 3, "title": "gh-relay", "closed": false }
+        ]
+      },
+      "organizations": {
+        "nodes": [
+          {
+            "login": "acme",
+            "projectsV2": {
+              "nodes": [{ "id": "PVT_org_roadmap", "number": 7, "title": "Roadmap", "closed": false }, null]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
