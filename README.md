@@ -43,10 +43,10 @@ npm link        # makes the `tako` command available everywhere
 
 ## Usage
 
-Run every command from the **root of the repository** you want to work on:
-tako reads and writes its files in the current directory.
+tako works from any folder: your projects are saved in your user config, not
+in a repository.
 
-### 1. Configure the repository
+### 1. Add a project
 
 ```sh
 tako init
@@ -54,7 +54,7 @@ tako init
 
 The wizard asks:
 
-1. Which GitHub Project holds the tasks for this repository.
+1. Which GitHub Project to add (the ones already added are marked).
 2. Which field defines the board columns (it suggests `Status`).
 3. Which column plays each role:
 
@@ -71,14 +71,18 @@ Your columns can have any names. tako stores the column IDs, so renaming a
 column later does not break the setup. Removing a mapped column does: the
 board shows a warning and asks you to run `tako init` again.
 
-`init` writes two files:
+Run `tako init` once per project. Adding a project that is already there asks
+before replacing its setup; the other projects are kept.
 
-| File | Contents | Commit it? |
-|---|---|---|
-| `.tako.json` | Your project, field and column IDs | **No.** It identifies your project, so `init` adds it to `.gitignore` |
-| `.tako/rules.md` | How you want the agent to work (scope, style, tests) | **Yes.** Edit it freely; it is created once and never overwritten |
+The setup is saved in `config.json`, in your user config directory:
 
-Running `init` again asks before replacing the existing configuration.
+| System | Location |
+|---|---|
+| Windows | `%APPDATA%\tako\config.json` |
+| macOS, Linux | `$XDG_CONFIG_HOME/tako/config.json`, or `~/.config/tako/config.json` |
+
+Set `TAKO_CONFIG_DIR` to use another directory. The file holds your project
+IDs, so keep it out of any repository.
 
 ### 2. Open the board
 
@@ -86,8 +90,10 @@ Running `init` again asks before replacing the existing configuration.
 tako
 ```
 
-The board opens on the `ready` column. Columns sit side by side and scroll
-sideways when they do not fit the terminal.
+tako opens the board of the last project you used, in full screen; when you
+quit, the terminal is back as it was. The board opens on the `ready` column.
+Columns sit side by side and scroll sideways when they do not fit the
+terminal. Press `p` to switch to another project.
 
 | Key | Board | Card details |
 |---|---|---|
@@ -95,6 +101,7 @@ sideways when they do not fit the terminal.
 | `↑` `↓` | Change card | Scroll the description |
 | `Enter` | Open the card's details | Back to the board |
 | `s` | Start the selected card | Start this card |
+| `p` | Switch project | |
 | `Esc` | Quit | Back to the board |
 | `q` | Quit | Quit |
 
@@ -110,7 +117,9 @@ then which model, starting with the default agent from `tako init`. Choosing
 cannot be started.
 
 > Launching the agent is not built yet: for now tako confirms the choice and
-> goes back to the board.
+> goes back to the board. When it lands, tako will run the agent inside the
+> issue's repository and create `.tako/rules.md` there: the rules you want the
+> agent to follow, meant to be committed.
 
 Only the first 100 cards of a project are shown.
 
