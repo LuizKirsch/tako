@@ -94,7 +94,8 @@ sideways when they do not fit the terminal.
 | `q` | Quit | Quit |
 
 The details show the card's repository, column, state, labels, assignees,
-link and description.
+link, description and comments. Comments load when the card is opened (up to
+the latest 100).
 
 Only the first 100 cards of a project are shown.
 
