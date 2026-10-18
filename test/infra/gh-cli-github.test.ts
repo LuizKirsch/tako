@@ -22,8 +22,8 @@ describe("GhCliGitHub.listProjects", () => {
     const projects = await github.listProjects();
     expect(projects.map((p) => `${p.owner}/${p.number} ${p.ownerType}${p.closed ? " closed" : ""}`)).toEqual([
       "acme/7 organization",
-      "LuizKirsch/3 user",
-      "LuizKirsch/1 user closed",
+      "octocat/3 user",
+      "octocat/1 user closed",
     ]);
   });
 });
@@ -167,7 +167,7 @@ describe("GhCliGitHub.moveCard", () => {
 });
 
 describe("GhCliGitHub.openPullRequest", () => {
-  const input = { repo: "LuizKirsch/portfolio", base: "main", head: "tako/3-fix", title: "Fix", body: "Closes #3" };
+  const input = { repo: "octocat/webapp", base: "main", head: "tako/3-fix", title: "Fix", body: "Closes #3" };
 
   // Answers the lookup first, then the creation.
   const runner = (...stdouts: unknown[]) => {
@@ -182,10 +182,10 @@ describe("GhCliGitHub.openPullRequest", () => {
   it("creates the pull request in the repository", async () => {
     const run = runner(
       { data: { repository: { id: "R_1", pullRequests: { nodes: [] } } } },
-      { data: { createPullRequest: { pullRequest: { url: "https://github.com/LuizKirsch/portfolio/pull/7" } } } },
+      { data: { createPullRequest: { pullRequest: { url: "https://github.com/octocat/webapp/pull/7" } } } },
     );
-    await expect(new GhCliGitHub(run).openPullRequest(input)).resolves.toBe("https://github.com/LuizKirsch/portfolio/pull/7");
-    expect(run.calls[0]).toEqual(expect.arrayContaining(["owner=LuizKirsch", "name=portfolio", "head=tako/3-fix"]));
+    await expect(new GhCliGitHub(run).openPullRequest(input)).resolves.toBe("https://github.com/octocat/webapp/pull/7");
+    expect(run.calls[0]).toEqual(expect.arrayContaining(["owner=octocat", "name=webapp", "head=tako/3-fix"]));
     expect(run.calls[1]).toEqual(expect.arrayContaining(["repositoryId=R_1", "base=main", "title=Fix", "body=Closes #3"]));
   });
 
@@ -197,7 +197,7 @@ describe("GhCliGitHub.openPullRequest", () => {
 
   it("finds the newest pull request of the branch in any state", async () => {
     const run = runner({ data: { repository: { id: "R_1", pullRequests: { nodes: [{ number: 4, url: "https://x/pull/4", state: "MERGED" }] } } } });
-    await expect(new GhCliGitHub(run).findPullRequest("LuizKirsch/portfolio", "tako/3-fix")).resolves.toEqual({
+    await expect(new GhCliGitHub(run).findPullRequest("octocat/webapp", "tako/3-fix")).resolves.toEqual({
       number: 4,
       url: "https://x/pull/4",
       state: "merged",

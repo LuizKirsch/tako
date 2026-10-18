@@ -8,7 +8,7 @@ const project: ProjectSummary = {
   id: "PVT_1",
   number: 3,
   title: "tako",
-  owner: "LuizKirsch",
+  owner: "octocat",
   ownerType: "user",
   closed: false,
 };
@@ -17,7 +17,7 @@ const status: ColumnField = {
   id: "F_status",
   name: "Status",
   options: [
-    { id: "o-ready", name: "Pronto para IA" },
+    { id: "o-ready", name: "Ready for AI" },
     { id: "o-doing", name: "Em andamento" },
     { id: "o-review", name: "Para teste" },
   ],
@@ -27,7 +27,7 @@ const choices: InitChoices = {
   project,
   field: status,
   roles: {
-    ready: { optionId: "o-ready", name: "Pronto para IA" },
+    ready: { optionId: "o-ready", name: "Ready for AI" },
     in_progress: { optionId: "o-doing", name: "Em andamento" },
     delivery: { optionId: "o-review", name: "Para teste" },
   },

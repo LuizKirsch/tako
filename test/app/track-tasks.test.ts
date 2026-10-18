@@ -7,7 +7,7 @@ import type { RunningTask } from "../../src/domain/task.js";
 import { FakeGit, FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
 const project: ProjectConfig = {
-  project: { id: "PVT_1", number: 1, title: "Board", owner: "LuizKirsch", ownerType: "user" },
+  project: { id: "PVT_1", number: 1, title: "Board", owner: "octocat", ownerType: "user" },
   columnField: { id: "F1", name: "Status" },
   roles: {
     ready: { optionId: "o-ready", name: "Ready" },
@@ -23,9 +23,9 @@ const task = (itemId: string, sessionId: string, extra: Partial<RunningTask> = {
   projectId: "PVT_1",
   agentId: "claude-code",
   sessionId,
-  repo: "LuizKirsch/portfolio",
-  root: "/code/portfolio",
-  worktree: `/code/portfolio/.tako/worktrees/${itemId}`,
+  repo: "octocat/webapp",
+  root: "/code/webapp",
+  worktree: `/code/webapp/.tako/worktrees/${itemId}`,
   branch: `tako/${itemId}`,
   number: 3,
   title: "Fix the login",
@@ -34,7 +34,7 @@ const task = (itemId: string, sessionId: string, extra: Partial<RunningTask> = {
 
 function setup(tasks: RunningTask[]) {
   const files = new MemoryFiles({
-    [CONFIG_FILE]: JSON.stringify({ version: 1, projects: [project], repos: { "luizkirsch/portfolio": "/code/portfolio" } }),
+    [CONFIG_FILE]: JSON.stringify({ version: 1, projects: [project], repos: { "octocat/webapp": "/code/webapp" } }),
     [TASKS_FILE]: JSON.stringify(tasks),
   });
   const github = new FakeGitHub([], {});
@@ -60,12 +60,12 @@ describe("syncTasks", () => {
     agent.sessionList.push({ id: "a", state: "done" }, { id: "b", state: "working" });
     git.ahead["tako/I1"] = 2;
 
-    git.worktrees.set("/code/portfolio/.tako/worktrees/I1", "tako/I1");
+    git.worktrees.set("/code/webapp/.tako/worktrees/I1", "tako/I1");
 
     const result = await syncTasks(deps);
     expect(result).toEqual({
       states: { I2: { state: "working" } },
-      delivered: [{ url: "https://github.com/LuizKirsch/portfolio/pull/1", leftover: undefined }],
+      delivered: [{ url: "https://github.com/octocat/webapp/pull/1", leftover: undefined }],
     });
     // Cleaned up: the session stopped, the worktree removed.
     expect(agent.stopped).toEqual(["a"]);
@@ -73,7 +73,7 @@ describe("syncTasks", () => {
     expect(git.pushed).toEqual(["tako/I1"]);
     expect(github.pullRequests).toEqual([
       {
-        repo: "LuizKirsch/portfolio",
+        repo: "octocat/webapp",
         base: "main",
         head: "tako/I1",
         title: "Fix the login",
@@ -88,7 +88,7 @@ describe("syncTasks", () => {
     const { deps, agent, git } = setup([task("I1", "a")]);
     agent.sessionList.push({ id: "a", state: "done" });
     git.ahead["tako/I1"] = 1;
-    git.dirty.add("/code/portfolio/.tako/worktrees/I1");
+    git.dirty.add("/code/webapp/.tako/worktrees/I1");
 
     const { delivered } = await syncTasks(deps);
     expect(delivered[0]?.leftover).toContain("was kept: contains modified or untracked files");
@@ -154,7 +154,7 @@ describe("deliverCard", () => {
     kind: "issue",
     title: "Fix the login",
     number: 3,
-    repo: "LuizKirsch/portfolio",
+    repo: "octocat/webapp",
     closed: false,
     body: "",
     labels: [],
@@ -166,7 +166,7 @@ describe("deliverCard", () => {
     git.ahead["tako/3-fix-the-login"] = 1;
 
     await expect(findPullRequest(deps, card)).resolves.toBeUndefined();
-    await expect(deliverCard(deps, card, project)).resolves.toMatchObject({ url: "https://github.com/LuizKirsch/portfolio/pull/1" });
+    await expect(deliverCard(deps, card, project)).resolves.toMatchObject({ url: "https://github.com/octocat/webapp/pull/1" });
     expect(git.pushed).toEqual(["tako/3-fix-the-login"]);
     expect(github.moves).toHaveLength(1);
     await expect(findPullRequest(deps, card)).resolves.toMatchObject({ number: 1, state: "open" });
@@ -183,6 +183,6 @@ describe("deliverCard", () => {
 
   it("explains a repository tako has no folder for", async () => {
     const { deps } = setup([]);
-    await expect(deliverCard(deps, { ...card, repo: "LuizKirsch/other" }, project)).rejects.toThrow("does not know where");
+    await expect(deliverCard(deps, { ...card, repo: "octocat/other" }, project)).rejects.toThrow("does not know where");
   });
 });

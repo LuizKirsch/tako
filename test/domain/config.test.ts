@@ -16,17 +16,17 @@ const field: ColumnField = {
   id: "F1",
   name: "Status",
   options: [
-    { id: "o-ready", name: "Pronto para IA" },
+    { id: "o-ready", name: "Ready for AI" },
     { id: "o-doing", name: "Em andamento" },
     { id: "o-review", name: "Para teste" },
   ],
 };
 
 const project = (id: string, title = id): ProjectConfig => ({
-  project: { id, number: 3, title, owner: "LuizKirsch", ownerType: "user" },
+  project: { id, number: 3, title, owner: "octocat", ownerType: "user" },
   columnField: { id: "F1", name: "Status" },
   roles: {
-    ready: { optionId: "o-ready", name: "Pronto para IA" },
+    ready: { optionId: "o-ready", name: "Ready for AI" },
     in_progress: { optionId: "o-doing", name: "Em andamento" },
     delivery: { optionId: "o-review", name: "Para teste" },
   },
@@ -168,9 +168,9 @@ describe("detectConfigDrift", () => {
 
 describe("repository folders", () => {
   it("remembers a folder per repository, case-insensitively", () => {
-    const config = rememberRepo(validConfig, "LuizKirsch/Portfolio", "C:/code/portfolio");
-    expect(repoPath(config, "luizkirsch/portfolio")).toBe("C:/code/portfolio");
-    expect(repoPath(config, "LuizKirsch/other")).toBeUndefined();
+    const config = rememberRepo(validConfig, "Octocat/WebApp", "C:/code/webapp");
+    expect(repoPath(config, "octocat/webapp")).toBe("C:/code/webapp");
+    expect(repoPath(config, "octocat/other")).toBeUndefined();
   });
 
   it("keeps the folders when a project is added", () => {
@@ -179,10 +179,10 @@ describe("repository folders", () => {
   });
 
   it("parses the folders and reports a bad one", () => {
-    const raw = { ...validConfig, repos: { "LuizKirsch/Portfolio": "/code/portfolio" } };
+    const raw = { ...validConfig, repos: { "Octocat/WebApp": "/code/webapp" } };
     expect(parseConfig(raw)).toEqual({
       ok: true,
-      value: { ...validConfig, repos: { "luizkirsch/portfolio": "/code/portfolio" } },
+      value: { ...validConfig, repos: { "octocat/webapp": "/code/webapp" } },
     });
     expect(parseConfig({ ...validConfig, repos: { "a/b": "" } })).toMatchObject({ ok: false, errors: [{ path: "repos.a/b" }] });
   });

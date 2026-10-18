@@ -9,8 +9,8 @@ const card: Card = {
   kind: "issue",
   title: "Corrigir a página de login",
   number: 3,
-  url: "https://github.com/LuizKirsch/portfolio/issues/3",
-  repo: "LuizKirsch/portfolio",
+  url: "https://github.com/octocat/webapp/issues/3",
+  repo: "octocat/webapp",
   closed: false,
   body: "## Checklist\n- [ ] Fix it\n",
   labels: [],
@@ -19,19 +19,19 @@ const card: Card = {
 
 describe("repoFromRemoteUrl", () => {
   it("reads HTTPS and SSH GitHub remotes, lowercased", () => {
-    expect(repoFromRemoteUrl("https://github.com/LuizKirsch/portfolio.git")).toBe("luizkirsch/portfolio");
-    expect(repoFromRemoteUrl("https://github.com/LuizKirsch/portfolio")).toBe("luizkirsch/portfolio");
-    expect(repoFromRemoteUrl("git@github.com:LuizKirsch/portfolio.git")).toBe("luizkirsch/portfolio");
-    expect(repoFromRemoteUrl("ssh://git@github.com/LuizKirsch/my.repo.git\n")).toBe("luizkirsch/my.repo");
+    expect(repoFromRemoteUrl("https://github.com/octocat/webapp.git")).toBe("octocat/webapp");
+    expect(repoFromRemoteUrl("https://github.com/octocat/webapp")).toBe("octocat/webapp");
+    expect(repoFromRemoteUrl("git@github.com:octocat/webapp.git")).toBe("octocat/webapp");
+    expect(repoFromRemoteUrl("ssh://git@github.com/octocat/my.repo.git\n")).toBe("octocat/my.repo");
   });
 
   it("ignores remotes that are not GitHub", () => {
-    expect(repoFromRemoteUrl("https://gitlab.com/LuizKirsch/portfolio.git")).toBeUndefined();
+    expect(repoFromRemoteUrl("https://gitlab.com/octocat/webapp.git")).toBeUndefined();
   });
 
   it("compares repositories without case", () => {
-    expect(sameRepo("LuizKirsch/portfolio", "luizkirsch/Portfolio")).toBe(true);
-    expect(sameRepo("LuizKirsch/portfolio", "LuizKirsch/other")).toBe(false);
+    expect(sameRepo("octocat/webapp", "octocat/WebApp")).toBe(true);
+    expect(sameRepo("octocat/webapp", "octocat/other")).toBe(false);
   });
 });
 
@@ -57,7 +57,7 @@ describe("buildTaskPrompt", () => {
       rulesFile: ".tako/rules.md",
     });
 
-    expect(prompt).toContain("Work on GitHub issue #3 in LuizKirsch/portfolio: Corrigir a página de login");
+    expect(prompt).toContain("Work on GitHub issue #3 in octocat/webapp: Corrigir a página de login");
     expect(prompt).toContain("on the branch `tako/3-corrigir-a-pagina-de-login` (from `main`)");
     expect(prompt).toContain("Follow the repository's own instructions first (`CLAUDE.md`, `AGENTS.md`");
     expect(prompt).toContain("Then follow the rules in `.tako/rules.md`");

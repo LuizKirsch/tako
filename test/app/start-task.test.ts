@@ -7,7 +7,7 @@ import { TASKS_FILE } from "../../src/app/task-store.js";
 import { RECOMMENDED_RULES, RULES_FILE } from "../../src/templates/recommended-rules.js";
 import { FakeGit, FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
-const REPO = "LuizKirsch/portfolio";
+const REPO = "octocat/webapp";
 
 const card: Card = {
   itemId: "PVTI_1",
@@ -24,7 +24,7 @@ const card: Card = {
 };
 
 const project: ProjectConfig = {
-  project: { id: "PVT_1", number: 1, title: "Board", owner: "LuizKirsch", ownerType: "user" },
+  project: { id: "PVT_1", number: 1, title: "Board", owner: "octocat", ownerType: "user" },
   columnField: { id: "F1", name: "Status" },
   roles: {
     ready: { optionId: "o-ready", name: "Ready" },
@@ -47,9 +47,9 @@ function setup(options: { repos?: Record<string, string>; cwd?: string; git?: Fa
   const git =
     options.git ??
     new FakeGit({
-      "/code/portfolio": { root: "/code/portfolio", repo: "luizkirsch/portfolio" },
-      "/code/portfolio/src": { root: "/code/portfolio", repo: "luizkirsch/portfolio" },
-      "/code/other": { root: "/code/other", repo: "luizkirsch/other" },
+      "/code/webapp": { root: "/code/webapp", repo: "octocat/webapp" },
+      "/code/webapp/src": { root: "/code/webapp", repo: "octocat/webapp" },
+      "/code/other": { root: "/code/other", repo: "octocat/other" },
     });
   const start = new StartTask({
     files,
@@ -65,18 +65,18 @@ function setup(options: { repos?: Record<string, string>; cwd?: string; git?: Fa
 
 describe("StartTask.findRepo", () => {
   it("uses the folder remembered for the repository", async () => {
-    const { start } = setup({ repos: { "luizkirsch/portfolio": "/code/portfolio" } });
-    await expect(start.findRepo(REPO)).resolves.toBe("/code/portfolio");
+    const { start } = setup({ repos: { "octocat/webapp": "/code/webapp" } });
+    await expect(start.findRepo(REPO)).resolves.toBe("/code/webapp");
   });
 
   it("uses and remembers the current folder when it is that repository", async () => {
-    const { start, savedRepos } = setup({ cwd: "/code/portfolio/src" });
-    await expect(start.findRepo(REPO)).resolves.toBe("/code/portfolio");
-    expect(savedRepos()).toEqual({ "luizkirsch/portfolio": "/code/portfolio" });
+    const { start, savedRepos } = setup({ cwd: "/code/webapp/src" });
+    await expect(start.findRepo(REPO)).resolves.toBe("/code/webapp");
+    expect(savedRepos()).toEqual({ "octocat/webapp": "/code/webapp" });
   });
 
   it("asks again when the remembered folder no longer holds the repository", async () => {
-    const { start } = setup({ repos: { "luizkirsch/portfolio": "/code/moved" } });
+    const { start } = setup({ repos: { "octocat/webapp": "/code/moved" } });
     await expect(start.findRepo(REPO)).resolves.toBeUndefined();
   });
 
@@ -89,8 +89,8 @@ describe("StartTask.findRepo", () => {
 describe("StartTask.useRepoAt", () => {
   it("accepts a folder of the repository, keeps its root and remembers it", async () => {
     const { start, savedRepos } = setup();
-    await expect(start.useRepoAt(REPO, "/code/portfolio/src")).resolves.toEqual({ ok: true, root: "/code/portfolio" });
-    expect(savedRepos()).toEqual({ "luizkirsch/portfolio": "/code/portfolio" });
+    await expect(start.useRepoAt(REPO, "/code/webapp/src")).resolves.toEqual({ ok: true, root: "/code/webapp" });
+    expect(savedRepos()).toEqual({ "octocat/webapp": "/code/webapp" });
   });
 
   it("refuses a folder that is not a git repository", async () => {
@@ -104,7 +104,7 @@ describe("StartTask.useRepoAt", () => {
     await expect(start.useRepoAt(REPO, "/code/other")).resolves.toEqual({
       ok: false,
       reason: "other_repo",
-      found: "luizkirsch/other",
+      found: "octocat/other",
     });
   });
 });
@@ -112,12 +112,12 @@ describe("StartTask.useRepoAt", () => {
 describe("StartTask.prepareRepo", () => {
   it("creates the rules file once and never overwrites it", async () => {
     const { start, repoFiles } = setup();
-    await expect(start.prepareRepo("/code/portfolio")).resolves.toBe(true);
-    expect(repoFiles.get("/code/portfolio")?.files.get(RULES_FILE)).toBe(RECOMMENDED_RULES);
+    await expect(start.prepareRepo("/code/webapp")).resolves.toBe(true);
+    expect(repoFiles.get("/code/webapp")?.files.get(RULES_FILE)).toBe(RECOMMENDED_RULES);
 
-    await repoFiles.get("/code/portfolio")?.writeText(RULES_FILE, "my rules");
-    await expect(start.prepareRepo("/code/portfolio")).resolves.toBe(false);
-    expect(repoFiles.get("/code/portfolio")?.files.get(RULES_FILE)).toBe("my rules");
+    await repoFiles.get("/code/webapp")?.writeText(RULES_FILE, "my rules");
+    await expect(start.prepareRepo("/code/webapp")).resolves.toBe(false);
+    expect(repoFiles.get("/code/webapp")?.files.get(RULES_FILE)).toBe("my rules");
   });
 });
 
@@ -135,16 +135,16 @@ describe("StartTask.launch", () => {
 
   it("starts the agent in a worktree of its own, with the issue and its comments", async () => {
     const { start, agent, git } = setup();
-    const worktree = join("/code/portfolio", ".tako/worktrees/3-fix-the-login");
-    await expect(start.launch(request, "/code/portfolio")).resolves.toBe(worktree);
+    const worktree = join("/code/webapp", ".tako/worktrees/3-fix-the-login");
+    await expect(start.launch(request, "/code/webapp")).resolves.toBe(worktree);
     expect(git.worktrees.get(worktree)).toBe("tako/3-fix-the-login");
 
     expect(agent.launches).toHaveLength(1);
     const [launch] = agent.launches;
     expect(launch).toMatchObject({ cwd: worktree, model: "opus" });
     // The rules may exist only in the user's checkout, not in the worktree.
-    expect(launch?.prompt).toContain(join("/code/portfolio", ".tako/rules.md"));
-    expect(launch?.prompt).toContain("Work on GitHub issue #3 in LuizKirsch/portfolio: Fix the login");
+    expect(launch?.prompt).toContain(join("/code/webapp", ".tako/rules.md"));
+    expect(launch?.prompt).toContain("Work on GitHub issue #3 in octocat/webapp: Fix the login");
     expect(launch?.prompt).toContain("Make it work.");
     expect(launch?.prompt).toContain("Check mobile too.");
     expect(launch?.name).toBe("tako #3 Fix the login");
@@ -152,17 +152,17 @@ describe("StartTask.launch", () => {
 
   it("follows the task, replacing an older one for the same card", async () => {
     const { start, files } = setup();
-    await start.launch(request, "/code/portfolio");
-    await start.launch(request, "/code/portfolio");
+    await start.launch(request, "/code/webapp");
+    await start.launch(request, "/code/webapp");
     expect(JSON.parse(files.files.get(TASKS_FILE) ?? "[]")).toEqual([
       {
         itemId: "PVTI_1",
         projectId: "PVT_1",
         agentId: "claude-code",
         sessionId: "s2",
-        repo: "LuizKirsch/portfolio",
-        root: "/code/portfolio",
-        worktree: join("/code/portfolio", ".tako/worktrees/3-fix-the-login"),
+        repo: "octocat/webapp",
+        root: "/code/webapp",
+        worktree: join("/code/webapp", ".tako/worktrees/3-fix-the-login"),
         branch: "tako/3-fix-the-login",
         number: 3,
         title: "Fix the login",
@@ -172,6 +172,6 @@ describe("StartTask.launch", () => {
 
   it("fails clearly for an agent that is not installed", async () => {
     const { start } = setup();
-    await expect(start.launch({ ...request, agentId: "codex" }, "/code/portfolio")).rejects.toThrow('Unknown agent "codex"');
+    await expect(start.launch({ ...request, agentId: "codex" }, "/code/webapp")).rejects.toThrow('Unknown agent "codex"');
   });
 });

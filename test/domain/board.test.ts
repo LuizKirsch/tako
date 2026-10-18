@@ -7,7 +7,7 @@ const status: ColumnField = {
   name: "Status",
   options: [
     { id: "o-todo", name: "To do" },
-    { id: "o-ready", name: "Pronto para IA" },
+    { id: "o-ready", name: "Ready for AI" },
     { id: "o-done", name: "Finalizado" },
   ],
 };
@@ -25,10 +25,10 @@ const card = (itemId: string, optionId: string | undefined): Card => ({
 
 describe("buildBoard", () => {
   it("keeps the field's option order and tags the mapped roles", () => {
-    const columns = buildBoard(status, { ready: { optionId: "o-ready", name: "Pronto para IA" } }, []);
+    const columns = buildBoard(status, { ready: { optionId: "o-ready", name: "Ready for AI" } }, []);
     expect(columns.map((c) => [c.name, c.role])).toEqual([
       ["To do", undefined],
-      ["Pronto para IA", "ready"],
+      ["Ready for AI", "ready"],
       ["Finalizado", undefined],
     ]);
   });
@@ -50,7 +50,7 @@ describe("buildBoard", () => {
 });
 
 describe("canStart", () => {
-  const columns = buildBoard(status, { ready: { optionId: "o-ready", name: "Pronto para IA" } }, []);
+  const columns = buildBoard(status, { ready: { optionId: "o-ready", name: "Ready for AI" } }, []);
 
   it("allows only the column mapped to the ready role", () => {
     expect(columns.map((c) => canStart(c))).toEqual([false, true, false]);

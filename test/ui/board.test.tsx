@@ -12,8 +12,8 @@ const card = (n: number, title: string): Card => ({
   kind: "issue",
   title,
   number: n,
-  repo: "LuizKirsch/portfolio",
-  url: `https://github.com/LuizKirsch/portfolio/issues/${n}`,
+  repo: "octocat/webapp",
+  url: `https://github.com/octocat/webapp/issues/${n}`,
   closed: false,
   body: `## Checklist\n- [ ] Body of ${title}`,
   labels: ["conteúdo"],
@@ -29,7 +29,7 @@ const column = (name: string, cards: Card[] = [], role?: BoardColumn["role"]): B
 
 const columns: BoardColumn[] = [
   column("To do", [card(9, "Later task")]),
-  column("Pronto para IA", [card(3, "First task"), card(4, "Second task")], "ready"),
+  column("Ready for AI", [card(3, "First task"), card(4, "Second task")], "ready"),
 ];
 
 const RIGHT = "\u001B[C";
@@ -50,7 +50,7 @@ const agents = [
   },
 ];
 const projects = [
-  { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" as const },
+  { id: "PVT_1", number: 2, title: "Website", owner: "octocat", ownerType: "user" as const },
   { id: "PVT_2", number: 5, title: "Side project", owner: "acme", ownerType: "organization" as const },
 ];
 const projectProps = {
@@ -66,12 +66,12 @@ const projectProps = {
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
+    const { lastFrame } = render(<Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     const frame = lastFrame() ?? "";
 
     // Both headers on the same line: columns are side by side.
     const headerLine = frame.split("\n").find((line) => line.includes("To do")) ?? "";
-    expect(headerLine).toContain("Pronto para IA");
+    expect(headerLine).toContain("Ready for AI");
     expect(frame).toContain("› #3");
     expect(frame).toContain("Later task");
     expect(frame).toContain("ready: cards the AI");
@@ -80,7 +80,7 @@ describe("Board", () => {
   it("shows what a card's background agent is doing and opens it with a", async () => {
     const onAttach = vi.fn();
     const { lastFrame, stdin } = render(
-      <Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} tasks={{ I3: { state: "needs_input" }, I4: { state: "done", error: "No commits." } }} onAttach={onAttach} />,
+      <Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} tasks={{ I3: { state: "needs_input" }, I4: { state: "done", error: "No commits." } }} onAttach={onAttach} />,
     );
     expect(lastFrame()).toContain("agent needs you");
 
@@ -100,7 +100,7 @@ describe("Board", () => {
   });
 
   it("moves between cards and columns with the arrow keys", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
+    const { lastFrame, stdin } = render(<Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
 
     stdin.write(DOWN);
@@ -133,7 +133,7 @@ describe("Board", () => {
   });
 
   it("opens the selected card with Enter and goes back with Esc", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
+    const { lastFrame, stdin } = render(<Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
 
     stdin.write(DOWN);
@@ -142,7 +142,7 @@ describe("Board", () => {
     await tick();
     const detail = lastFrame() ?? "";
     expect(detail).toContain("#4 Second task");
-    expect(detail).toContain("LuizKirsch/portfolio · Pronto para IA · open");
+    expect(detail).toContain("octocat/webapp · Ready for AI · open");
     expect(detail).toContain("conteúdo");
     expect(detail).toContain("- [ ] Body of Second task");
     expect(detail).not.toContain("To do");
@@ -163,7 +163,7 @@ describe("Board", () => {
 
   it("shows drift warnings", () => {
     const drift = [{ kind: "field_missing" as const, fieldName: "Status" }];
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
+    const { lastFrame } = render(<Board title="Website / Status" columns={[]} drift={drift} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     expect(lastFrame()).toContain('The "Status" field no longer exists');
   });
 });
@@ -173,7 +173,7 @@ describe("TaskView comments", () => {
     render(
       <TaskView
         card={card(4, "Second task")}
-        columnName="Pronto para IA"
+        columnName="Ready for AI"
         loadComments={loadComments}
         pullRequests={{ find: async () => undefined, create: async () => ({ url: "" }) }}
         onClose={() => {}}
@@ -216,7 +216,7 @@ describe("Starting a task", () => {
   const board = (agentList = agents, onStart: BoardProps["onStart"] = () => {}, cols = columns) =>
     render(
       <Board
-        title="Portfolio / Status"
+        title="Website / Status"
         columns={cols}
         drift={[]}
         loadComments={noComments}
@@ -246,7 +246,7 @@ describe("Starting a task", () => {
     stdin.write(ENTER);
     await vi.waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
     const [card, choice] = onStart.mock.calls[0]!;
-    expect(card).toMatchObject({ number: 3, repo: "LuizKirsch/portfolio" });
+    expect(card).toMatchObject({ number: 3, repo: "octocat/webapp" });
     expect(choice).toEqual({ agentId: "claude-code", model: "opus" });
   });
 
@@ -267,7 +267,7 @@ describe("Starting a task", () => {
   it("refuses drafts, which have no repository", async () => {
     const draft: Card = { ...card(1, "Idea"), kind: "draft", repo: undefined };
     const onStart = vi.fn();
-    const { lastFrame, stdin } = board(agents, onStart, [column("Pronto para IA", [draft], "ready")]);
+    const { lastFrame, stdin } = board(agents, onStart, [column("Ready for AI", [draft], "ready")]);
     await tick();
 
     stdin.write("s");
@@ -307,7 +307,7 @@ describe("Starting a task", () => {
     stdin.write(LEFT);
     await vi.waitFor(() => expect(lastFrame()).toContain("› #9"));
     stdin.write("s");
-    await vi.waitFor(() => expect(lastFrame()).toContain('Only cards in "Pronto para IA" can be started.'));
+    await vi.waitFor(() => expect(lastFrame()).toContain('Only cards in "Ready for AI" can be started.'));
   });
 
   it("explains when no agent is installed", async () => {
@@ -323,7 +323,7 @@ describe("Switching projects", () => {
   const board = (onSwitchProject: (id: string) => void) =>
     render(
       <Board
-        title="Portfolio / Status"
+        title="Website / Status"
         columns={columns}
         drift={[]}
         loadComments={noComments}
@@ -340,7 +340,7 @@ describe("Switching projects", () => {
 
     stdin.write("p");
     await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
-    expect(lastFrame()).toContain("› Portfolio (LuizKirsch #2, open now)");
+    expect(lastFrame()).toContain("› Website (octocat #2, open now)");
     expect(lastFrame()).toContain("Side project (acme #5)");
     expect(lastFrame()).toContain("+ Add a project");
   });
@@ -348,7 +348,7 @@ describe("Switching projects", () => {
   it("adds a project from the last entry of the list", async () => {
     const onAddProject = vi.fn();
     const { lastFrame, stdin } = render(
-      <Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} onAddProject={onAddProject} />,
+      <Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} onAddProject={onAddProject} />,
     );
     await tick();
     stdin.write("p");
@@ -410,14 +410,14 @@ describe("TaskView pull request", () => {
 
   it("shows the pull request of the branch", async () => {
     const { lastFrame } = view({
-      find: async () => ({ number: 7, url: "https://github.com/LuizKirsch/portfolio/pull/7", state: "open" }),
+      find: async () => ({ number: 7, url: "https://github.com/octocat/webapp/pull/7", state: "open" }),
       create: async () => ({ url: "" }),
     });
     await vi.waitFor(() => expect(lastFrame()).toContain("#7 open"));
   });
 
   it("creates it with c when there is none", async () => {
-    const create = vi.fn(async () => ({ url: "https://github.com/LuizKirsch/portfolio/pull/8" }));
+    const create = vi.fn(async () => ({ url: "https://github.com/octocat/webapp/pull/8" }));
     const { lastFrame, stdin } = view({ find: async () => undefined, create });
     await vi.waitFor(() => expect(lastFrame()).toContain("none for tako/3-first-task"));
 

@@ -64,10 +64,10 @@ describe("GitCli.inspect", () => {
   };
 
   it("finds the root and the GitHub repository, even from a subfolder", async () => {
-    const dir = repoWith("portfolio", "git@github.com:LuizKirsch/portfolio.git");
+    const dir = repoWith("webapp", "git@github.com:octocat/webapp.git");
     await expect(new GitCli().inspect(join(dir, "src"))).resolves.toEqual({
       root: resolve(dir),
-      repo: "luizkirsch/portfolio",
+      repo: "octocat/webapp",
     });
   });
 

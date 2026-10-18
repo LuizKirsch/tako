@@ -1,7 +1,7 @@
 {
   "data": {
     "viewer": {
-      "login": "LuizKirsch",
+      "login": "octocat",
       "projectsV2": {
         "nodes": [
           { "id": "PVT_user_old", "number": 1, "title": "Old board", "closed": true },

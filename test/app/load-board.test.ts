@@ -9,25 +9,25 @@ const status: ColumnField = {
   id: "F_status",
   name: "Status",
   options: [
-    { id: "o-ready", name: "Pronto para IA" },
-    { id: "o-doing", name: "Fazendo" },
-    { id: "o-review", name: "Pronto para teste" },
+    { id: "o-ready", name: "Ready for AI" },
+    { id: "o-doing", name: "Doing" },
+    { id: "o-review", name: "Ready for review" },
   ],
 };
 
 const project = (id: string, title: string): ProjectConfig => ({
-  project: { id, number: 2, title, owner: "LuizKirsch", ownerType: "user" },
+  project: { id, number: 2, title, owner: "octocat", ownerType: "user" },
   columnField: { id: "F_status", name: "Status" },
   roles: {
-    ready: { optionId: "o-ready", name: "Pronto para IA" },
-    in_progress: { optionId: "o-doing", name: "Fazendo" },
-    delivery: { optionId: "o-review", name: "Pronto para teste" },
+    ready: { optionId: "o-ready", name: "Ready for AI" },
+    in_progress: { optionId: "o-doing", name: "Doing" },
+    delivery: { optionId: "o-review", name: "Ready for review" },
   },
   agent: { default: "claude-code" },
   baseBranch: "main",
 });
 
-const config: TakoConfig = { version: 1, lastProjectId: "PVT_1", projects: [project("PVT_1", "Portfolio")] };
+const config: TakoConfig = { version: 1, lastProjectId: "PVT_1", projects: [project("PVT_1", "Website")] };
 
 const cards: Card[] = [
   {
@@ -57,7 +57,7 @@ describe("loadBoard", () => {
     const two: TakoConfig = {
       version: 1,
       lastProjectId: "PVT_2",
-      projects: [project("PVT_1", "Portfolio"), project("PVT_2", "Side project")],
+      projects: [project("PVT_1", "Website"), project("PVT_2", "Side project")],
     };
     const github = new FakeGitHub([], { PVT_1: [status], PVT_2: [status] }, { PVT_1: cards, PVT_2: [] });
     const lastOpened = (files: MemoryFiles) => JSON.parse(files.files.get(CONFIG_FILE) ?? "{}").lastProjectId;
@@ -67,7 +67,7 @@ describe("loadBoard", () => {
 
       if (result.status !== "ok") throw new Error(result.status);
       expect(result.project.project.title).toBe("Side project");
-      expect(result.projects.map((p) => p.title)).toEqual(["Portfolio", "Side project"]);
+      expect(result.projects.map((p) => p.title)).toEqual(["Website", "Side project"]);
     });
 
     it("opens the requested project and remembers it for next time", async () => {
@@ -108,9 +108,9 @@ describe("loadBoard", () => {
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.drift).toEqual([]);
     expect(result.columns.map((c) => [c.name, c.role, c.cards.length])).toEqual([
-      ["Pronto para IA", "ready", 1],
-      ["Fazendo", "in_progress", 0],
-      ["Pronto para teste", "delivery", 0],
+      ["Ready for AI", "ready", 1],
+      ["Doing", "in_progress", 0],
+      ["Ready for review", "delivery", 0],
     ]);
   });
 

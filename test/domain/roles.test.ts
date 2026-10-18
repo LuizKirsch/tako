@@ -6,7 +6,7 @@ const field: ColumnField = {
   name: "Status",
   options: [
     { id: "o-todo", name: "Todo" },
-    { id: "o-ready", name: "Pronto para IA" },
+    { id: "o-ready", name: "Ready for AI" },
     { id: "o-doing", name: "Em andamento" },
     { id: "o-review", name: "Para teste" },
     { id: "o-blocked", name: "Com problema" },
@@ -18,7 +18,7 @@ const bind = (id: string, name: string) => ({ optionId: id, name });
 describe("validateRoleMapping", () => {
   it("accepts a complete mapping", () => {
     const errors = validateRoleMapping(field, {
-      ready: bind("o-ready", "Pronto para IA"),
+      ready: bind("o-ready", "Ready for AI"),
       in_progress: bind("o-doing", "Em andamento"),
       delivery: bind("o-review", "Para teste"),
       blocked: bind("o-blocked", "Com problema"),
@@ -28,7 +28,7 @@ describe("validateRoleMapping", () => {
 
   it("accepts a mapping without the optional blocked role", () => {
     const errors = validateRoleMapping(field, {
-      ready: bind("o-ready", "Pronto para IA"),
+      ready: bind("o-ready", "Ready for AI"),
       in_progress: bind("o-doing", "Em andamento"),
       delivery: bind("o-review", "Para teste"),
     });
@@ -36,7 +36,7 @@ describe("validateRoleMapping", () => {
   });
 
   it("reports every missing required role", () => {
-    const errors = validateRoleMapping(field, { ready: bind("o-ready", "Pronto para IA") });
+    const errors = validateRoleMapping(field, { ready: bind("o-ready", "Ready for AI") });
     expect(errors).toEqual([
       { kind: "missing_required", role: "in_progress" },
       { kind: "missing_required", role: "delivery" },
@@ -45,7 +45,7 @@ describe("validateRoleMapping", () => {
 
   it("rejects one column used for two roles", () => {
     const errors = validateRoleMapping(field, {
-      ready: bind("o-ready", "Pronto para IA"),
+      ready: bind("o-ready", "Ready for AI"),
       in_progress: bind("o-doing", "Em andamento"),
       delivery: bind("o-review", "Para teste"),
       blocked: bind("o-review", "Para teste"),

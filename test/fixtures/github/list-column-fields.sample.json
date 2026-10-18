@@ -10,7 +10,7 @@
             "name": "Status",
             "options": [
               { "id": "a1", "name": "Backlog" },
-              { "id": "b2", "name": "Pronto para IA" },
+              { "id": "b2", "name": "Ready for AI" },
               { "id": "c3", "name": "Em andamento" },
               { "id": "d4", "name": "Com problema" },
               { "id": "e5", "name": "Para teste" },
