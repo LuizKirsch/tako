@@ -1,9 +1,7 @@
 // Port: an AI coding agent tako can open (Claude Code, Codex CLI...).
 //
 // Each agent declares the models it accepts, so the start picker works the
-// same for every agent. Launching with the task context (`buildLaunch`)
-// arrives with the StartTask issue, after the Ink + agent spike settles how
-// to spawn it.
+// same for every agent, and knows how to open itself on a task.
 
 export interface AgentModel {
   id: string; // passed to the agent as is, e.g. "opus"
@@ -17,4 +15,14 @@ export interface AgentAdapter {
   // agent's own default model.
   models: readonly AgentModel[];
   isInstalled(): Promise<boolean>;
+  // Opens an interactive session in `cwd`, attached to the user's terminal,
+  // with `prompt` as the first message. Resolves with the agent's exit code
+  // when the user closes it.
+  launch(options: LaunchOptions): Promise<number>;
+}
+
+export interface LaunchOptions {
+  cwd: string;
+  model: string | undefined; // undefined = the agent's default
+  prompt: string;
 }

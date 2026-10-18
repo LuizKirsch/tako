@@ -2,8 +2,9 @@
 
 import type { Card, Comment } from "../../src/domain/board.js";
 import type { ColumnField } from "../../src/domain/roles.js";
-import type { AgentAdapter } from "../../src/ports/agent.js";
+import type { AgentAdapter, LaunchOptions } from "../../src/ports/agent.js";
 import type { Files } from "../../src/ports/files.js";
+import type { GitPort, LocalRepo } from "../../src/ports/git.js";
 import type { GitHubPort, ProjectSummary } from "../../src/ports/github.js";
 
 export class MemoryFiles implements Files {
@@ -47,12 +48,29 @@ export class FakeGitHub implements GitHubPort {
   }
 }
 
-export const fakeAgent = (id: string, installed: boolean): AgentAdapter => ({
-  id,
-  displayName: id,
-  models: [
-    { id: "big", label: "Big" },
-    { id: "small", label: "Small" },
-  ],
-  isInstalled: async () => installed,
-});
+// An agent that records every launch instead of opening anything.
+export const fakeAgent = (id: string, installed: boolean): AgentAdapter & { launches: LaunchOptions[] } => {
+  const launches: LaunchOptions[] = [];
+  return {
+    id,
+    displayName: id,
+    models: [
+      { id: "big", label: "Big" },
+      { id: "small", label: "Small" },
+    ],
+    isInstalled: async () => installed,
+    launch: async (options) => {
+      launches.push(options);
+      return 0;
+    },
+    launches,
+  };
+};
+
+// Local repositories by folder; any other folder is not a repository.
+export class FakeGit implements GitPort {
+  constructor(private readonly repos: Record<string, LocalRepo> = {}) {}
+  async inspect(dir: string) {
+    return this.repos[dir];
+  }
+}
