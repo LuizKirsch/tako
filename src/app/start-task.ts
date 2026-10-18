@@ -6,15 +6,18 @@
 //   useRepoAt()   -> checks a folder the user typed and remembers it
 //   prepareRepo() -> creates .tako/rules.md there the first time
 //   moveToInProgress() -> moves the card to the in_progress column
-//   launch()      -> opens the agent in that folder with the issue as the
-//                    first message, and waits until the user closes it
+//   launch()      -> creates the task's worktree (its own folder and branch),
+//                    starts the agent there in the background with the issue
+//                    as the first message, and follows the task
+//                    (see track-tasks.ts)
 //
 // Folders are remembered per repository in the tako config, so a project
 // with issues from several repositories works too.
 
 import type { Card } from "../domain/board.js";
 import { rememberRepo, repoPath, type ProjectConfig } from "../domain/config.js";
-import { buildTaskPrompt, sameRepo } from "../domain/task.js";
+import { join } from "node:path";
+import { branchName, buildTaskPrompt, sameRepo, worktreeDir } from "../domain/task.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
 import type { GitPort } from "../ports/git.js";
@@ -22,6 +25,7 @@ import type { GitHubPort } from "../ports/github.js";
 import { RECOMMENDED_RULES, RULES_FILE } from "../templates/recommended-rules.js";
 import { loadConfig, saveConfig } from "./config-file.js";
 import { loadComments } from "./load-board.js";
+import { loadTasks, saveTasks } from "./task-store.js";
 
 export interface StartDeps {
   files: Files; // rooted at the tako config directory
@@ -93,14 +97,37 @@ export class StartTask {
     return target.name;
   }
 
-  // Resolves with the agent's exit code once the user closes it.
-  async launch(request: StartRequest, root: string): Promise<number> {
+  // Resolves with the worktree as soon as the agent runs in the background.
+  async launch(request: StartRequest, root: string): Promise<string> {
     const agent = this.deps.agents.find((a) => a.id === request.agentId);
     if (!agent) throw new Error(`Unknown agent "${request.agentId}".`);
+    const { card, project } = request;
 
-    const comments = await loadComments(this.deps.github, request.card);
-    const prompt = buildTaskPrompt({ card: request.card, comments, baseBranch: request.project.baseBranch, rulesFile: RULES_FILE });
-    return agent.launch({ cwd: root, model: request.model, prompt });
+    const branch = branchName(card);
+    const worktree = join(root, worktreeDir(branch));
+    await this.deps.git.addWorktree(root, worktree, branch, project.baseBranch);
+
+    const comments = await loadComments(this.deps.github, card);
+    const rulesFile = join(root, RULES_FILE);
+    const prompt = buildTaskPrompt({ card, comments, baseBranch: project.baseBranch, rulesFile });
+    const name = `tako #${card.number ?? "?"} ${card.title}`;
+    const sessionId = await agent.start({ cwd: worktree, model: request.model, prompt, name });
+
+    const tasks = (await loadTasks(this.deps.files)).filter((t) => t.itemId !== card.itemId);
+    tasks.push({
+      itemId: card.itemId,
+      projectId: project.project.id,
+      agentId: agent.id,
+      sessionId,
+      repo: card.repo ?? "",
+      root,
+      worktree,
+      branch,
+      number: card.number,
+      title: card.title,
+    });
+    await saveTasks(this.deps.files, tasks);
+    return worktree;
   }
 
   private async isRepo(dir: string, repo: string): Promise<boolean> {

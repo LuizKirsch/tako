@@ -1,7 +1,9 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { StartTask, type StartRequest } from "../../src/app/start-task.js";
 import type { Card } from "../../src/domain/board.js";
 import { CONFIG_FILE, type ProjectConfig, type TakoConfig } from "../../src/domain/config.js";
+import { TASKS_FILE } from "../../src/app/task-store.js";
 import { RECOMMENDED_RULES, RULES_FILE } from "../../src/templates/recommended-rules.js";
 import { FakeGit, FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
@@ -58,7 +60,7 @@ function setup(options: { repos?: Record<string, string>; cwd?: string; git?: Fa
     cwd: options.cwd ?? "/somewhere/else",
   });
   const savedRepos = () => JSON.parse(files.files.get(CONFIG_FILE) ?? "{}").repos;
-  return { start, agent, github, repoFiles, savedRepos };
+  return { start, agent, github, git, files, repoFiles, savedRepos };
 }
 
 describe("StartTask.findRepo", () => {
@@ -131,16 +133,41 @@ describe("StartTask.moveToInProgress", () => {
 
 describe("StartTask.launch", () => {
 
-  it("opens the agent in the repository with the issue and its comments", async () => {
-    const { start, agent } = setup();
-    await expect(start.launch(request, "/code/portfolio")).resolves.toBe(0);
+  it("starts the agent in a worktree of its own, with the issue and its comments", async () => {
+    const { start, agent, git } = setup();
+    const worktree = join("/code/portfolio", ".tako/worktrees/3-fix-the-login");
+    await expect(start.launch(request, "/code/portfolio")).resolves.toBe(worktree);
+    expect(git.worktrees.get(worktree)).toBe("tako/3-fix-the-login");
 
     expect(agent.launches).toHaveLength(1);
     const [launch] = agent.launches;
-    expect(launch).toMatchObject({ cwd: "/code/portfolio", model: "opus" });
+    expect(launch).toMatchObject({ cwd: worktree, model: "opus" });
+    // The rules may exist only in the user's checkout, not in the worktree.
+    expect(launch?.prompt).toContain(join("/code/portfolio", ".tako/rules.md"));
     expect(launch?.prompt).toContain("Work on GitHub issue #3 in LuizKirsch/portfolio: Fix the login");
     expect(launch?.prompt).toContain("Make it work.");
     expect(launch?.prompt).toContain("Check mobile too.");
+    expect(launch?.name).toBe("tako #3 Fix the login");
+  });
+
+  it("follows the task, replacing an older one for the same card", async () => {
+    const { start, files } = setup();
+    await start.launch(request, "/code/portfolio");
+    await start.launch(request, "/code/portfolio");
+    expect(JSON.parse(files.files.get(TASKS_FILE) ?? "[]")).toEqual([
+      {
+        itemId: "PVTI_1",
+        projectId: "PVT_1",
+        agentId: "claude-code",
+        sessionId: "s2",
+        repo: "LuizKirsch/portfolio",
+        root: "/code/portfolio",
+        worktree: join("/code/portfolio", ".tako/worktrees/3-fix-the-login"),
+        branch: "tako/3-fix-the-login",
+        number: 3,
+        title: "Fix the login",
+      },
+    ]);
   });
 
   it("fails clearly for an agent that is not installed", async () => {
