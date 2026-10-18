@@ -7,13 +7,20 @@
 // (no project added, GitHub errors) are printed on the normal screen instead.
 //
 // Switching projects reloads in place. Starting a task leaves the board,
-// runs `start` on the normal screen (where the agent takes the terminal),
-// and then opens the board again on the same project.
+// runs `start` on the normal screen (it may ask for the repository's folder),
+// and opens the board again: the agent works in the background meanwhile.
+// While the board is open, the background tasks are checked every few
+// seconds; a finished one is delivered as a pull request, and the board reloads. `a` leaves
+// the board to open a card's agent session, to answer it.
 
 import { Box, render, Text, type Instance } from "ink";
 import type { ReactNode } from "react";
 import type { BoardResult } from "../../app/load-board.js";
 import type { StartRequest } from "../../app/start-task.js";
+import type { Delivery, SyncResult } from "../../app/track-tasks.js";
+import type { ProjectConfig } from "../../domain/config.js";
+import type { TaskStatus } from "../../domain/task.js";
+import type { PullRequestInfo } from "../../ports/github.js";
 import type { Card, Comment } from "../../domain/board.js";
 import { GitHubError } from "../../ports/github.js";
 import { Board } from "./Board.js";
@@ -23,12 +30,19 @@ export interface RunBoardOptions {
   load: (projectId?: string) => Promise<BoardResult>;
   loadComments: (card: Card) => Promise<Comment[]>;
   start: (request: StartRequest, agents: readonly AgentChoice[]) => Promise<void>;
+  sync: () => Promise<SyncResult>;
+  attach: (itemId: string) => Promise<void>;
+  findPullRequest: (card: Card) => Promise<PullRequestInfo | undefined>;
+  deliver: (card: Card, project: ProjectConfig) => Promise<Delivery>;
   configPath: string; // shown when the config cannot be read
 }
 
 type Session =
   | { kind: "quit"; exitCode: number }
-  | { kind: "start"; request: StartRequest; agents: readonly AgentChoice[]; projectId: string };
+  | { kind: "start"; request: StartRequest; agents: readonly AgentChoice[]; projectId: string }
+  | { kind: "attach"; itemId: string; projectId: string };
+
+const SYNC_EVERY_MS = 5000;
 
 // Returns the process exit code.
 export async function runBoard(options: RunBoardOptions): Promise<number> {
@@ -40,7 +54,12 @@ export async function runBoard(options: RunBoardOptions): Promise<number> {
     // Ink unrefs stdin when it unmounts, and clack does not ref it back:
     // without this, the process exits while the first prompt waits for input.
     process.stdin.ref();
-    await options.start(session.request, session.agents);
+    if (session.kind === "start") {
+      await options.start(session.request, session.agents);
+    } else {
+      console.log("Opening the agent. Leave it with Ctrl+Z to come back to the board; it keeps running.");
+      await options.attach(session.itemId);
+    }
   }
 }
 
@@ -49,11 +68,25 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
   // Ignored by Ink when stdout is not a terminal (piped output, CI).
   const app = render(<Text dimColor>Loading the board…</Text>, { alternateScreen: true });
   let session: Session = { kind: "quit", exitCode: 0 };
+  let draw: ((states: Record<string, TaskStatus>) => void) | undefined;
+  let currentProjectId = initialProjectId;
+  let busy = false;
 
-  const open = async (projectId?: string): Promise<void> => {
-    app.rerender(<Text dimColor>Loading the board…</Text>);
+  // A failed check (agent or GitHub unreachable) just waits for the next one.
+  const sync = () => options.sync().catch((): SyncResult => ({ states: {}, delivered: [] }));
+
+  // `quiet` reloads behind the current board, keeping the selection.
+  const open = async (projectId?: string, quiet = false): Promise<void> => {
+    busy = true;
+    if (!quiet) {
+      draw = undefined;
+      app.rerender(<Text dimColor>Loading the board…</Text>);
+    }
     let result: BoardResult;
+    let states: Record<string, TaskStatus>;
     try {
+      // Sync first: a task that finished meanwhile is already moved.
+      states = (await sync()).states;
       result = await options.load(projectId);
     } catch (error) {
       if (!(error instanceof GitHubError)) {
@@ -85,31 +118,62 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
     }
 
     const { project, projects, columns, drift, agents } = result;
-    app.rerender(
-      <Board
-        // A new key resets the board (selected column and card) on switch.
-        key={project.project.id}
-        title={`${project.project.title} / ${project.columnField.name}`}
-        columns={columns}
-        drift={drift}
-        loadComments={options.loadComments}
-        agents={agents}
-        defaultAgentId={project.agent.default}
-        projects={projects}
-        currentProjectId={project.project.id}
-        onSwitchProject={(id) => void open(id)}
-        onStart={(card, choice) => {
-          const request = { card, ...choice, project };
-          session = { kind: "start", request, agents, projectId: project.project.id };
-          // Leave the alternate screen: the agent needs the real terminal.
-          app.unmount();
+    currentProjectId = project.project.id;
+    draw = (states) =>
+      app.rerender(
+        <Board
+          // A new key resets the board (selected column and card) on switch.
+          key={project.project.id}
+          title={`${project.project.title} / ${project.columnField.name}`}
+          columns={columns}
+          drift={drift}
+          loadComments={options.loadComments}
+          agents={agents}
+          defaultAgentId={project.agent.default}
+          projects={projects}
+          currentProjectId={project.project.id}
+          tasks={states}
+        pullRequests={{
+          find: options.findPullRequest,
+          create: async (card) => {
+            const delivered = await options.deliver(card, project);
+            // The card moved to delivery.
+            void open(project.project.id, true);
+            return delivered;
+          },
         }}
-      />,
-    );
+          onSwitchProject={(id) => void open(id)}
+          onAttach={(card) => {
+            session = { kind: "attach", itemId: card.itemId, projectId: project.project.id };
+            app.unmount();
+          }}
+          onStart={(card, choice) => {
+            const request = { card, ...choice, project };
+            session = { kind: "start", request, agents, projectId: project.project.id };
+            // Leave the alternate screen: starting may ask for the repository's folder.
+            app.unmount();
+          }}
+        />,
+      );
+    draw(states);
+    busy = false;
   };
 
-  await open(initialProjectId);
-  await app.waitUntilExit();
+  const timer = setInterval(async () => {
+    if (busy || !draw) return;
+    busy = true;
+    const { states, delivered } = await sync();
+    busy = false;
+    if (delivered.length > 0) await open(currentProjectId, true);
+    else draw?.(states);
+  }, SYNC_EVERY_MS);
+
+  try {
+    await open(initialProjectId);
+    await app.waitUntilExit();
+  } finally {
+    clearInterval(timer);
+  }
   return session;
 }
 

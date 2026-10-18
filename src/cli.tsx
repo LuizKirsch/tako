@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { InitProject } from "./app/init-project.js";
 import { loadBoard, loadComments } from "./app/load-board.js";
 import { StartTask } from "./app/start-task.js";
+import { attachTask, deliverCard, findPullRequest, syncTasks } from "./app/track-tasks.js";
 import { CONFIG_FILE } from "./domain/config.js";
 import { AGENTS } from "./infra/agents/registry.js";
 import { configDir } from "./infra/fs/config-dir.js";
@@ -26,6 +27,7 @@ const USAGE = `Usage:
 const dir = configDir();
 const configPath = join(dir, CONFIG_FILE);
 const deps = { github: new GhCliGitHub(), files: new NodeFiles(dir), agents: AGENTS };
+const git = new GitCli();
 
 const [command] = process.argv.slice(2);
 
@@ -37,7 +39,7 @@ switch (command) {
   case undefined: {
     const start = new StartTask({
       ...deps,
-      git: new GitCli(),
+      git,
       repoFiles: (root) => new NodeFiles(root),
       cwd: process.cwd(),
     });
@@ -45,6 +47,10 @@ switch (command) {
       start: (request, agents) => runStart(start, request, agents),
       load: (projectId) => loadBoard(deps, projectId),
       loadComments: (card) => loadComments(deps.github, card),
+      sync: () => syncTasks({ ...deps, git }),
+      attach: (itemId) => attachTask({ ...deps, git }, itemId),
+      findPullRequest: (card) => findPullRequest({ ...deps, git }, card),
+      deliver: (card, project) => deliverCard({ ...deps, git }, card, project),
       configPath,
     });
     break;

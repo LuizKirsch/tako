@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import { describe, expect, it, vi } from "vitest";
 import type { BoardColumn, Card, Comment } from "../../src/domain/board.js";
 import { Board, type BoardProps } from "../../src/ui/board/Board.js";
-import { TaskView } from "../../src/ui/board/TaskView.js";
+import { TaskView, type PullRequestActions } from "../../src/ui/board/TaskView.js";
 
 // ink-testing-library renders into a 100-column terminal: three columns fit.
 
@@ -53,7 +53,15 @@ const projects = [
   { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" as const },
   { id: "PVT_2", number: 5, title: "Side project", owner: "acme", ownerType: "organization" as const },
 ];
-const projectProps = { projects, currentProjectId: "PVT_1", onSwitchProject: () => {}, onStart: () => {} };
+const projectProps = {
+  projects,
+  currentProjectId: "PVT_1",
+  tasks: {},
+  pullRequests: { find: async () => undefined, create: async () => ({ url: "" }) },
+  onSwitchProject: () => {},
+  onStart: () => {},
+  onAttach: () => {},
+};
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
@@ -66,6 +74,28 @@ describe("Board", () => {
     expect(frame).toContain("› #3");
     expect(frame).toContain("Later task");
     expect(frame).toContain("ready: cards the AI");
+  });
+
+  it("shows what a card's background agent is doing and opens it with a", async () => {
+    const onAttach = vi.fn();
+    const { lastFrame, stdin } = render(
+      <Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} tasks={{ I3: { state: "needs_input" }, I4: { state: "done", error: "No commits." } }} onAttach={onAttach} />,
+    );
+    expect(lastFrame()).toContain("agent needs you");
+
+    stdin.write("a");
+    await vi.waitFor(() => expect(onAttach).toHaveBeenCalledTimes(1));
+    expect(onAttach.mock.calls[0]?.[0].itemId).toBe("I3");
+
+    stdin.write(DOWN);
+    await vi.waitFor(() => expect(lastFrame()).toContain("No commits. Press a to ask the agent to fix it."));
+    expect(lastFrame()).toContain("delivery failed");
+
+    stdin.write(LEFT);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› #9"));
+    stdin.write("a");
+    await vi.waitFor(() => expect(lastFrame()).toContain("No agent is running on this card."));
+    expect(onAttach).toHaveBeenCalledTimes(1);
   });
 
   it("moves between cards and columns with the arrow keys", async () => {
@@ -144,6 +174,7 @@ describe("TaskView comments", () => {
         card={card(4, "Second task")}
         columnName="Pronto para IA"
         loadComments={loadComments}
+        pullRequests={{ find: async () => undefined, create: async () => ({ url: "" }) }}
         onClose={() => {}}
         onStart={() => {}}
         onQuit={() => {}}
@@ -263,7 +294,7 @@ describe("Starting a task", () => {
     await tick();
 
     stdin.write(ENTER);
-    await vi.waitFor(() => expect(lastFrame()).toContain("s start · Esc/Enter back"));
+    await vi.waitFor(() => expect(lastFrame()).toContain("s start · c create PR · Esc/Enter back"));
     stdin.write("s");
     await vi.waitFor(() => expect(lastFrame()).toContain("Start #3 First task"));
   });
@@ -341,5 +372,51 @@ describe("Switching projects", () => {
     stdin.write(ESC);
     await vi.waitFor(() => expect(lastFrame()).toContain("To do"));
     expect(onSwitch).not.toHaveBeenCalled();
+  });
+});
+
+describe("TaskView pull request", () => {
+  const view = (pullRequests: PullRequestActions) =>
+    render(
+      <TaskView
+        card={card(3, "First task")}
+        columnName="Para teste"
+        loadComments={noComments}
+        pullRequests={pullRequests}
+        onClose={() => {}}
+        onStart={() => {}}
+        onQuit={() => {}}
+        isActive
+      />,
+    );
+
+  it("shows the pull request of the branch", async () => {
+    const { lastFrame } = view({
+      find: async () => ({ number: 7, url: "https://github.com/LuizKirsch/portfolio/pull/7", state: "open" }),
+      create: async () => ({ url: "" }),
+    });
+    await vi.waitFor(() => expect(lastFrame()).toContain("#7 open"));
+  });
+
+  it("creates it with c when there is none", async () => {
+    const create = vi.fn(async () => ({ url: "https://github.com/LuizKirsch/portfolio/pull/8" }));
+    const { lastFrame, stdin } = view({ find: async () => undefined, create });
+    await vi.waitFor(() => expect(lastFrame()).toContain("none for tako/3-first-task"));
+
+    stdin.write("c");
+    await vi.waitFor(() => expect(lastFrame()).toContain("#8 open"));
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows why the delivery failed", async () => {
+    const { lastFrame, stdin } = view({
+      find: async () => undefined,
+      create: async () => {
+        throw new Error("The branch tako/3-first-task has no commits ahead of main.");
+      },
+    });
+    await vi.waitFor(() => expect(lastFrame()).toContain("press c"));
+    stdin.write("c");
+    await vi.waitFor(() => expect(lastFrame()).toContain("no commits ahead of main"));
   });
 });

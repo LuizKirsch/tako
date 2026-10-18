@@ -1,6 +1,6 @@
 // Starting a task, after the board's picker: runs on the normal screen,
 // between two board sessions. Finds (or asks for) the repository's folder,
-// then hands the terminal to the agent until the user closes it.
+// then starts the agent in the background and goes back to the board.
 //
 // All decisions live in the StartTask use case; this file only asks,
 // shows progress and explains failures.
@@ -38,9 +38,9 @@ export async function runStart(start: StartTask, request: StartRequest, agents: 
 
     const agent = agents.find((a) => a.id === request.agentId);
     const model = agent?.models.find((m) => m.id === request.model)?.label ?? "default model";
-    p.outro(`Opening ${agent?.displayName ?? request.agentId} (${model}). Close it to come back to the board.`);
-
-    await start.launch(request, root);
+    const worktree = await start.launch(request, root);
+    p.log.info(`Worktree: ${worktree} (branch of its own; your checkout is not touched)`);
+    p.outro(`${agent?.displayName ?? request.agentId} (${model}) is working in the background. Press a on the card to follow it.`);
   } catch (error) {
     p.log.error(error instanceof Error ? error.message : String(error));
     // Keep the message on screen: the board takes the whole terminal again.

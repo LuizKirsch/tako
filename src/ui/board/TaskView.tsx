@@ -1,23 +1,43 @@
 // Details of one card, opened with Enter on the board.
 // The body and the comments are shown as plain markdown text, scrolled
 // together with ↑/↓. Comments load when the view opens.
+// For issues, the pull request of tako's branch is looked up too; when there
+// is none, `c` delivers the branch by hand (push, pull request, card moved).
 
 import { Box, Text, useInput, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
 import type { Card, Comment } from "../../domain/board.js";
+import { branchName } from "../../domain/task.js";
+import type { Delivery } from "../../app/track-tasks.js";
+import type { PullRequestInfo } from "../../ports/github.js";
 
 // Header, separators and help lines around the body.
 const CHROME_ROWS = 10;
+
+export interface PullRequestActions {
+  find: (card: Card) => Promise<PullRequestInfo | undefined>;
+  create: (card: Card) => Promise<Delivery>;
+}
 
 export interface TaskViewProps {
   card: Card;
   columnName: string;
   loadComments: (card: Card) => Promise<Comment[]>;
+  pullRequests: PullRequestActions;
   onClose: () => void;
   onStart: () => void;
   onQuit: () => void;
   isActive: boolean;
 }
+
+type PullRequestState =
+  | { status: "loading" }
+  | { status: "none" }
+  | { status: "found"; pr: PullRequestInfo; leftover?: string }
+  | { status: "creating" }
+  | { status: "error"; message: string };
+
+const PR_COLORS: Record<PullRequestInfo["state"], string> = { open: "green", merged: "magenta", closed: "red" };
 
 type CommentsState =
   | { status: "loading" }
@@ -31,10 +51,35 @@ interface Line {
   color?: string;
 }
 
-export function TaskView({ card, columnName, loadComments, onClose, onStart, onQuit, isActive }: TaskViewProps) {
+export function TaskView(props: TaskViewProps) {
+  const { card, columnName, loadComments, pullRequests, onClose, onStart, onQuit, isActive } = props;
   const size = useWindowSize();
   const [comments, setComments] = useState<CommentsState>({ status: "loading" });
   const [offset, setOffset] = useState(0);
+  const hasBranch = card.kind === "issue" && card.repo !== undefined;
+  const [pr, setPr] = useState<PullRequestState>({ status: "loading" });
+
+  useEffect(() => {
+    if (!hasBranch) return;
+    let current = true;
+    pullRequests.find(card).then(
+      (found) => current && setPr(found ? { status: "found", pr: found } : { status: "none" }),
+      (error: unknown) => current && setPr({ status: "error", message: errorText(error) }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [card, hasBranch, pullRequests]);
+
+  const createPullRequest = () => {
+    setPr({ status: "creating" });
+    pullRequests.create(card).then(
+      // The board reloads behind this view; the URL is enough to show here.
+      ({ url, leftover }) =>
+        setPr({ status: "found", pr: { number: Number(/\/pull\/(\d+)/.exec(url)?.[1] ?? 0), url, state: "open" }, leftover }),
+      (error: unknown) => setPr({ status: "error", message: errorText(error) }),
+    );
+  };
 
   useEffect(() => {
     // Ignore a late answer if the view was closed meanwhile.
@@ -58,6 +103,7 @@ export function TaskView({ card, columnName, loadComments, onClose, onStart, onQ
     (input, key) => {
       if (input === "q") onQuit();
       if (input === "s") onStart();
+      if (input === "c" && hasBranch && (pr.status === "none" || pr.status === "error")) createPullRequest();
       if (key.escape || key.return || key.backspace || key.leftArrow) onClose();
       if (key.upArrow) setOffset((o) => Math.max(0, o - 1));
       if (key.downArrow) setOffset((o) => Math.min(maxOffset, o + 1));
@@ -83,6 +129,7 @@ export function TaskView({ card, columnName, loadComments, onClose, onStart, onQ
         {card.assignees.length ? card.assignees.map((a) => `@${a}`).join(", ") : "—"}
       </Text>
       {card.url && <Text color="cyan">{card.url}</Text>}
+      {hasBranch && <PullRequestLine state={pr} branch={branchName(card)} />}
 
       <Box flexDirection="column" borderStyle="single" borderLeft={false} borderRight={false} borderDimColor>
         {start > 0 && <Text dimColor>↑ {start} more lines</Text>}
@@ -94,9 +141,37 @@ export function TaskView({ card, columnName, loadComments, onClose, onStart, onQ
         {start < maxOffset && <Text dimColor>↓ {maxOffset - start} more lines</Text>}
       </Box>
 
-      <Text dimColor>↑/↓ scroll · s start · Esc/Enter back · q quit</Text>
+      <Text dimColor>↑/↓ scroll · s start{hasBranch ? " · c create PR" : ""} · Esc/Enter back · q quit</Text>
     </Box>
   );
+}
+
+function PullRequestLine({ state, branch }: { state: PullRequestState; branch: string }) {
+  const label = <Text dimColor>pull request </Text>;
+  switch (state.status) {
+    case "loading":
+      return <Text>{label}<Text dimColor>checking…</Text></Text>;
+    case "none":
+      return <Text>{label}none for {branch} <Text color="yellow">· press c to create it</Text></Text>;
+    case "creating":
+      return <Text>{label}<Text color="yellow">pushing {branch} and opening it…</Text></Text>;
+    case "error":
+      return <Text wrap="truncate-end">{label}<Text color="red">{state.message} (c to try again)</Text></Text>;
+    case "found":
+      return (
+        <>
+          <Text>
+            {label}
+            <Text color={PR_COLORS[state.pr.state]}>#{state.pr.number} {state.pr.state}</Text> <Text color="cyan">{state.pr.url}</Text>
+          </Text>
+          {state.leftover && <Text color="yellow" wrap="truncate-end">{state.leftover}</Text>}
+        </>
+      );
+  }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function bodyLines(body: string): Line[] {
