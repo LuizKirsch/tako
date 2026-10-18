@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadBoard } from "../../src/app/load-board.js";
+import { loadBoard, loadComments } from "../../src/app/load-board.js";
 import type { Card } from "../../src/domain/board.js";
 import { CONFIG_FILE, type GhRelayConfig } from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
@@ -78,6 +78,19 @@ describe("loadBoard", () => {
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.drift).toMatchObject([{ kind: "role_option_missing", role: "delivery" }]);
     expect(result.columns).toHaveLength(2);
+  });
+
+  it("loads the comments of an issue card", async () => {
+    const comment = { author: "alice", body: "Looks good", createdAt: "2026-01-02T10:00:00Z" };
+    const github = new FakeGitHub([], {}, {}, { I_1: [comment] });
+    const card = cards[0]!;
+    await expect(loadComments(github, { ...card, contentId: "I_1" })).resolves.toEqual([comment]);
+  });
+
+  it("returns no comments for a draft, without calling GitHub", async () => {
+    const github = new FakeGitHub([], {});
+    github.listComments = () => Promise.reject(new Error("should not be called"));
+    await expect(loadComments(github, { ...cards[0]!, kind: "draft" })).resolves.toEqual([]);
   });
 
   it("has no columns when the column field itself is gone", async () => {

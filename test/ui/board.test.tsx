@@ -1,7 +1,8 @@
 import { render } from "ink-testing-library";
-import { describe, expect, it } from "vitest";
-import type { BoardColumn, Card } from "../../src/domain/board.js";
+import { describe, expect, it, vi } from "vitest";
+import type { BoardColumn, Card, Comment } from "../../src/domain/board.js";
 import { Board } from "../../src/ui/board/Board.js";
+import { TaskView } from "../../src/ui/board/TaskView.js";
 
 // ink-testing-library renders into a 100-column terminal: three columns fit.
 
@@ -37,10 +38,11 @@ const DOWN = "\u001B[B";
 const ENTER = "\r";
 const ESC = "\u001B";
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+const noComments = async (): Promise<Comment[]> => [];
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
     const frame = lastFrame() ?? "";
 
     // Both headers on the same line: columns are side by side.
@@ -52,7 +54,7 @@ describe("Board", () => {
   });
 
   it("moves between cards and columns with the arrow keys", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
     await tick();
 
     stdin.write(DOWN);
@@ -71,7 +73,7 @@ describe("Board", () => {
 
   it("scrolls sideways when the columns do not fit", async () => {
     const many = ["A", "B", "C", "D", "E", "F"].map((name) => column(`Col ${name}`));
-    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} loadComments={noComments} />);
     await tick();
 
     expect(lastFrame()).toContain("3 more ▶");
@@ -85,7 +87,7 @@ describe("Board", () => {
   });
 
   it("opens the selected card with Enter and goes back with Esc", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
     await tick();
 
     stdin.write(DOWN);
@@ -106,7 +108,7 @@ describe("Board", () => {
   });
 
   it("does nothing on Enter in an empty column", async () => {
-    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} loadComments={noComments} />);
     await tick();
     stdin.write(ENTER);
     await tick();
@@ -115,7 +117,49 @@ describe("Board", () => {
 
   it("shows drift warnings", () => {
     const drift = [{ kind: "field_missing" as const, fieldName: "Status" }];
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} />);
     expect(lastFrame()).toContain('The "Status" field no longer exists');
+  });
+});
+
+describe("TaskView comments", () => {
+  const view = (loadComments: (c: Card) => Promise<Comment[]>) =>
+    render(
+      <TaskView
+        card={card(4, "Second task")}
+        columnName="Pronto para IA"
+        loadComments={loadComments}
+        onClose={() => {}}
+        onQuit={() => {}}
+        isActive={false}
+      />,
+    );
+
+  it("shows a loading line, then the comments with author and date", async () => {
+    let answer: (list: Comment[]) => void = () => {};
+    const { lastFrame } = view(() => new Promise((resolve) => (answer = resolve)));
+    expect(lastFrame()).toContain("Loading comments…");
+
+    answer([
+      { author: "alice", body: "## Note\nNeeds a test", createdAt: "2026-01-02T10:00:00Z" },
+      { author: "bob", body: "Done", createdAt: "2026-01-03T10:00:00Z" },
+    ]);
+    await vi.waitFor(() => expect(lastFrame()).toContain("Comments (2)"));
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("@alice · 2026-01-02");
+    expect(frame).toContain("Needs a test");
+    expect(frame).toContain("@bob · 2026-01-03");
+    expect(frame).not.toContain("Loading comments…");
+  });
+
+  it("says when there are no comments", async () => {
+    const { lastFrame } = view(noComments);
+    await vi.waitFor(() => expect(lastFrame()).toContain("No comments."));
+  });
+
+  it("keeps the details visible when comments fail to load", async () => {
+    const { lastFrame } = view(() => Promise.reject(new Error("HTTP 502")));
+    await vi.waitFor(() => expect(lastFrame()).toContain("Could not load comments: HTTP 502"));
+    expect(lastFrame()).toContain("- [ ] Body of Second task");
   });
 });

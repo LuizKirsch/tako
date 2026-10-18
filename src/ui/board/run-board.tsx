@@ -4,11 +4,15 @@
 import { Box, render, Text, type Instance } from "ink";
 import type { ReactNode } from "react";
 import type { BoardResult } from "../../app/load-board.js";
+import type { Card, Comment } from "../../domain/board.js";
 import { GitHubError } from "../../ports/github.js";
 import { Board } from "./Board.js";
 
 // Returns the process exit code.
-export async function runBoard(load: () => Promise<BoardResult>): Promise<number> {
+export async function runBoard(
+  load: () => Promise<BoardResult>,
+  loadComments: (card: Card) => Promise<Comment[]>,
+): Promise<number> {
   const app = render(<Text dimColor>Loading the board…</Text>);
 
   let result: BoardResult;
@@ -42,7 +46,14 @@ export async function runBoard(load: () => Promise<BoardResult>): Promise<number
   }
 
   const { config, columns, drift } = result;
-  app.rerender(<Board title={`${config.project.title} / ${config.columnField.name}`} columns={columns} drift={drift} />);
+  app.rerender(
+    <Board
+      title={`${config.project.title} / ${config.columnField.name}`}
+      columns={columns}
+      drift={drift}
+      loadComments={loadComments}
+    />,
+  );
   await app.waitUntilExit();
   return 0;
 }

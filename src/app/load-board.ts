@@ -4,7 +4,7 @@
 // groups the cards into columns. When the board changed after init (drift),
 // the board still opens, read-only, and the UI explains what to fix.
 
-import { buildBoard, type BoardColumn } from "../domain/board.js";
+import { buildBoard, type BoardColumn, type Card, type Comment } from "../domain/board.js";
 import { detectConfigDrift, type ConfigDrift, type ConfigParseError, type GhRelayConfig } from "../domain/config.js";
 import type { RepoFiles } from "../ports/files.js";
 import type { GitHubPort } from "../ports/github.js";
@@ -36,4 +36,10 @@ export async function loadBoard(deps: BoardDeps): Promise<BoardResult> {
   // Without the field there are no columns to group by.
   const columns = field ? buildBoard(field, config.roles, cards) : [];
   return { status: "ok", config, columns, drift };
+}
+
+// Comments of one card, loaded when the card is opened.
+// Drafts are not issues yet, so they have no comments.
+export async function loadComments(github: GitHubPort, card: Card): Promise<Comment[]> {
+  return card.contentId ? github.listComments(card.contentId) : [];
 }

@@ -9,7 +9,7 @@
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
-import type { BoardColumn, Card } from "../../domain/board.js";
+import type { BoardColumn, Card, Comment } from "../../domain/board.js";
 import type { ConfigDrift } from "../../domain/config.js";
 import { ROLE_DESCRIPTIONS } from "../../domain/roles.js";
 import { TaskView } from "./TaskView.js";
@@ -23,9 +23,10 @@ export interface BoardProps {
   title: string;
   columns: BoardColumn[];
   drift: ConfigDrift[];
+  loadComments: (card: Card) => Promise<Comment[]>;
 }
 
-export function Board({ title, columns, drift }: BoardProps) {
+export function Board({ title, columns, drift, loadComments }: BoardProps) {
   const { exit } = useApp();
   // Without a keyboard (piped or non-interactive terminal) print once and quit.
   const { isRawModeSupported } = useStdin();
@@ -67,6 +68,7 @@ export function Board({ title, columns, drift }: BoardProps) {
       <TaskView
         card={selected}
         columnName={columns[col]?.name ?? ""}
+        loadComments={loadComments}
         onClose={() => setOpen(false)}
         onQuit={exit}
         isActive={isRawModeSupported}

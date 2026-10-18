@@ -5,7 +5,7 @@
 // what lets the use cases be tested with fakes.
 
 import { InitProject } from "./app/init-project.js";
-import { loadBoard } from "./app/load-board.js";
+import { loadBoard, loadComments } from "./app/load-board.js";
 import { AGENTS } from "./infra/agents/registry.js";
 import { NodeRepoFiles } from "./infra/fs/node-repo-files.js";
 import { GhCliGitHub } from "./infra/github/gh-cli-github.js";
@@ -26,7 +26,10 @@ switch (command) {
   }
   case undefined: {
     const deps = { github: new GhCliGitHub(), files: new NodeRepoFiles() };
-    process.exitCode = await runBoard(() => loadBoard(deps));
+    process.exitCode = await runBoard(
+      () => loadBoard(deps),
+      (card) => loadComments(deps.github, card),
+    );
     break;
   }
   case "-h":
