@@ -50,5 +50,9 @@ export class FakeGitHub implements GitHubPort {
 export const fakeAgent = (id: string, installed: boolean): AgentAdapter => ({
   id,
   displayName: id,
+  models: [
+    { id: "big", label: "Big" },
+    { id: "small", label: "Small" },
+  ],
   isInstalled: async () => installed,
 });
