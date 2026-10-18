@@ -154,3 +154,14 @@ describe("GhCliGitHub errors", () => {
     await expect(failWith({ stdout })).resolves.toEqual([]);
   });
 });
+
+describe("GhCliGitHub.moveCard", () => {
+  it("sends the mutation with every id as a variable", async () => {
+    const runner = fakeRunner({ stdout: JSON.stringify({ data: { updateProjectV2ItemFieldValue: { projectV2Item: { id: "PVTI_1" } } } }) });
+    await new GhCliGitHub(runner).moveCard({ projectId: "PVT_1", itemId: "PVTI_1", fieldId: "F1", optionId: "o-doing" });
+
+    const args = runner.calls[0] ?? [];
+    expect(args.some((a) => a.includes("updateProjectV2ItemFieldValue"))).toBe(true);
+    expect(args).toEqual(expect.arrayContaining(["projectId=PVT_1", "itemId=PVTI_1", "fieldId=F1", "optionId=o-doing"]));
+  });
+});

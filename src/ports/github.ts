@@ -17,6 +17,13 @@ export interface ProjectSummary {
   closed: boolean;
 }
 
+export interface CardMove {
+  projectId: string;
+  itemId: string;
+  fieldId: string;
+  optionId: string;
+}
+
 export interface GitHubPort {
   // Projects of the authenticated user plus those of their organizations.
   listProjects(): Promise<ProjectSummary[]>;
@@ -26,6 +33,8 @@ export interface GitHubPort {
   listCards(projectId: string, fieldId: string): Promise<Card[]>;
   // Comments of an issue or pull request (Card.contentId), oldest first.
   listComments(contentId: string): Promise<Comment[]>;
+  // Puts an item in another column: sets its single-select `fieldId` to `optionId`.
+  moveCard(move: CardMove): Promise<void>;
   // Hands the terminal to gh's own auth flow (login or scope refresh).
   // tako never sees the token. Resolves true when gh succeeded.
   fixAuth(kind: AuthFixKind): Promise<boolean>;

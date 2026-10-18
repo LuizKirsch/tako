@@ -5,7 +5,7 @@ import type { ColumnField } from "../../src/domain/roles.js";
 import type { AgentAdapter, LaunchOptions } from "../../src/ports/agent.js";
 import type { Files } from "../../src/ports/files.js";
 import type { GitPort, LocalRepo } from "../../src/ports/git.js";
-import type { GitHubPort, ProjectSummary } from "../../src/ports/github.js";
+import type { CardMove, GitHubPort, ProjectSummary } from "../../src/ports/github.js";
 
 export class MemoryFiles implements Files {
   readonly files = new Map<string, string>();
@@ -25,6 +25,7 @@ export class MemoryFiles implements Files {
 }
 
 export class FakeGitHub implements GitHubPort {
+  readonly moves: CardMove[] = [];
   constructor(
     private readonly projects: ProjectSummary[],
     private readonly fieldsByProject: Record<string, ColumnField[]>,
@@ -42,6 +43,9 @@ export class FakeGitHub implements GitHubPort {
   }
   async listColumnFields(projectId: string) {
     return this.fieldsByProject[projectId] ?? [];
+  }
+  async moveCard(move: CardMove) {
+    this.moves.push(move);
   }
   async fixAuth() {
     return true;

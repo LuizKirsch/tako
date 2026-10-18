@@ -4,7 +4,7 @@
 // (the user's `gh auth login`), and no token ever passes through tako.
 // Testability comes from the GhRunner seam, not from owning the HTTP layer.
 
-import { GitHubError, type AuthFixKind, type GitHubPort, type ProjectSummary } from "../../ports/github.js";
+import { GitHubError, type AuthFixKind, type CardMove, type GitHubPort, type ProjectSummary } from "../../ports/github.js";
 import type { ColumnField } from "../../domain/roles.js";
 import {
   execaGhInteractive,
@@ -13,7 +13,7 @@ import {
   type GhRunner,
   type InteractiveGhRunner,
 } from "./gh-runner.js";
-import { LIST_CARDS, LIST_COLUMN_FIELDS, LIST_COMMENTS, LIST_PROJECTS } from "./queries.js";
+import { LIST_CARDS, LIST_COLUMN_FIELDS, LIST_COMMENTS, LIST_PROJECTS, MOVE_CARD } from "./queries.js";
 import { parseCards, parseColumnFields, parseComments, parseProjects } from "./parse.js";
 import type { Card, Comment } from "../../domain/board.js";
 
@@ -53,6 +53,10 @@ export class GhCliGitHub implements GitHubPort {
 
   async listComments(contentId: string): Promise<Comment[]> {
     return parseComments(await this.graphql(LIST_COMMENTS, { id: contentId }));
+  }
+
+  async moveCard(move: CardMove): Promise<void> {
+    await this.graphql(MOVE_CARD, { ...move });
   }
 
   // Runs a query and returns `data`. Partial data (some nodes denied) is

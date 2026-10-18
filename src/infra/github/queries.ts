@@ -102,3 +102,15 @@ export const LIST_COLUMN_FIELDS = /* GraphQL */ `
     }
   }
 `;
+
+// Documented in "Using the API to manage Projects" (docs.github.com):
+// a single-select value is set by option ID.
+export const MOVE_CARD = /* GraphQL */ `
+  mutation MoveCard($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+    updateProjectV2ItemFieldValue(
+      input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId } }
+    ) {
+      projectV2Item { id }
+    }
+  }
+`;
