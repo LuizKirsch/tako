@@ -8,6 +8,7 @@ import { Box, Text, useInput } from "ink";
 import { useState } from "react";
 import type { Card } from "../../domain/board.js";
 import type { AgentAdapter } from "../../ports/agent.js";
+import { OptionList, type Option } from "./OptionList.js";
 
 export type AgentChoice = Pick<AgentAdapter, "id" | "displayName" | "models">;
 
@@ -23,12 +24,6 @@ export interface StartPickerProps {
   onConfirm: (choice: StartChoice) => void;
   onCancel: () => void;
   isActive: boolean;
-}
-
-interface Option {
-  key: string;
-  label: string;
-  hint?: string;
 }
 
 export function StartPicker({ card, agents, defaultAgentId, onConfirm, onCancel, isActive }: StartPickerProps) {
@@ -90,20 +85,6 @@ export function StartPicker({ card, agents, defaultAgentId, onConfirm, onCancel,
       <Box marginTop={1}>
         <Text dimColor>↑/↓ choose · Enter {step === "agent" ? "next" : "start"} · Esc back</Text>
       </Box>
-    </Box>
-  );
-}
-
-function OptionList({ options, selected }: { options: Option[]; selected: number }) {
-  return (
-    <Box flexDirection="column">
-      {options.map((option, i) => (
-        <Text key={option.key || "default"} color={i === selected ? "cyan" : undefined} bold={i === selected}>
-          {i === selected ? "  › " : "    "}
-          {option.label}
-          {option.hint ? <Text dimColor> ({option.hint})</Text> : null}
-        </Text>
-      ))}
     </Box>
   );
 }
