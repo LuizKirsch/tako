@@ -15,6 +15,7 @@ import type { AgentAdapter } from "../ports/agent.js";
 import type { RepoFiles } from "../ports/files.js";
 import type { AuthFixKind, GitHubPort, ProjectSummary } from "../ports/github.js";
 import { RECOMMENDED_RULES } from "../templates/recommended-rules.js";
+import { installedAgents } from "./agents.js";
 import { loadConfig, saveConfig, type LoadConfigResult } from "./config-file.js";
 
 export interface InitDeps {
@@ -48,12 +49,12 @@ export class InitProject {
 
   async prepare(): Promise<InitContext> {
     // Independent calls run in parallel: the GitHub request is the slow one.
-    const [projects, installedAgents, existingConfig] = await Promise.all([
+    const [projects, agents, existingConfig] = await Promise.all([
       this.deps.github.listProjects(),
-      this.installedAgents(),
+      installedAgents(this.deps.agents),
       loadConfig(this.deps.files),
     ]);
-    return { projects, installedAgents, existingConfig };
+    return { projects, installedAgents: agents, existingConfig };
   }
 
   fixAuth(kind: AuthFixKind): Promise<boolean> {
@@ -96,10 +97,5 @@ export class InitProject {
     if (rulesFileCreated) await this.deps.files.writeText(config.rulesFile, RECOMMENDED_RULES);
 
     return { ok: true, config, rulesFileCreated, gitignoreUpdated: gitignore !== undefined };
-  }
-
-  private async installedAgents(): Promise<AgentAdapter[]> {
-    const checks = await Promise.all(this.deps.agents.map(async (a) => ((await a.isInstalled()) ? a : undefined)));
-    return checks.filter((a): a is AgentAdapter => a !== undefined);
   }
 }
