@@ -1,13 +1,13 @@
-// The user layer of rules, generated once into a repository's .tako/rules.md.
-//
-// ponytail: not wired right now. init no longer runs inside a repository, so
-// the file will be created the first time a task starts in a repository.
+// The user layer of rules, created once in a repository's .tako/rules.md the
+// first time a task starts there, and never overwritten.
 //
 // It is a starting point the user owns and edits freely. The workflow
 // contract (no push, no PR, commit with #N...) is NOT here: tako injects
 // it on every run, so editing this file can never break the flow.
 //
 // Kept as a TS string (not a .md asset) so tsup bundles it without extra config.
+
+export const RULES_FILE = ".tako/rules.md"; // relative to the repository root
 
 export const RECOMMENDED_RULES = `# Rules for the AI agent
 
