@@ -7,13 +7,16 @@
 import { join } from "node:path";
 import { InitProject } from "./app/init-project.js";
 import { loadBoard, loadComments } from "./app/load-board.js";
+import { StartTask } from "./app/start-task.js";
 import { CONFIG_FILE } from "./domain/config.js";
 import { AGENTS } from "./infra/agents/registry.js";
 import { configDir } from "./infra/fs/config-dir.js";
 import { NodeFiles } from "./infra/fs/node-files.js";
+import { GitCli } from "./infra/git/git-cli.js";
 import { GhCliGitHub } from "./infra/github/gh-cli-github.js";
 import { runBoard } from "./ui/board/run-board.js";
 import { runInitWizard } from "./ui/init/run-init-wizard.js";
+import { runStart } from "./ui/start/run-start.js";
 
 const USAGE = `Usage:
   tako init    add a GitHub Project to tako
@@ -32,7 +35,14 @@ switch (command) {
     break;
   }
   case undefined: {
+    const start = new StartTask({
+      ...deps,
+      git: new GitCli(),
+      repoFiles: (root) => new NodeFiles(root),
+      cwd: process.cwd(),
+    });
     process.exitCode = await runBoard({
+      start: (request, agents) => runStart(start, request, agents),
       load: (projectId) => loadBoard(deps, projectId),
       loadComments: (card) => loadComments(deps.github, card),
       configPath,

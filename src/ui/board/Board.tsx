@@ -5,8 +5,9 @@
 // fit are shown (each at least MIN_COLUMN_WIDTH wide) and the view scrolls
 // sideways to keep the selected column visible.
 // Enter opens the card's details (TaskView). `s` starts a ready card: it asks
-// for the agent and model (StartPicker); launching the agent comes next.
-// `p` switches to another project (ProjectPicker).
+// for the agent and model (StartPicker), then hands the card to onStart,
+// which leaves the board to open the agent. `p` switches to another project
+// (ProjectPicker).
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
@@ -33,6 +34,7 @@ export interface BoardProps {
   projects: readonly ProjectRef[]; // every project added to tako
   currentProjectId: string;
   onSwitchProject: (projectId: string) => void;
+  onStart: (card: Card, choice: StartChoice) => void;
 }
 
 export function Board(props: BoardProps) {
@@ -64,6 +66,10 @@ export function Board(props: BoardProps) {
       const ready = columns.find((c) => c.role === "ready")?.name ?? "the ready column";
       setNotice(`Only cards in "${ready}" can be started.`);
       setOpen(false);
+    } else if (!selected.repo) {
+      // The agent runs inside the issue's repository; a draft has none.
+      setNotice("Drafts have no repository yet: convert it to an issue to start it.");
+      setOpen(false);
     } else if (agents.length === 0) {
       setNotice("No supported AI agent is installed. Install Claude Code and try again.");
       setOpen(false);
@@ -72,13 +78,9 @@ export function Board(props: BoardProps) {
     }
   };
 
-  const confirmStart = ({ agentId, model }: StartChoice) => {
-    const agent = agents.find((a) => a.id === agentId);
-    const modelLabel = agent?.models.find((m) => m.id === model)?.label ?? "default model";
+  const confirmStart = (choice: StartChoice) => {
     setStarting(false);
-    setOpen(false);
-    // ponytail: placeholder until the agent launch lands (StartTask issue).
-    setNotice(`Ready to start ${cardRef(selected)} with ${agent?.displayName ?? agentId} (${modelLabel}). Launching the agent comes next.`);
+    if (selected) props.onStart(selected, choice);
   };
 
   useInput(
@@ -218,10 +220,6 @@ function ColumnView(props: { column: BoardColumn; width: number; height: number;
       {below > 0 && <Text dimColor>↓ {below} more</Text>}
     </Box>
   );
-}
-
-function cardRef(card: Card | undefined): string {
-  return card?.kind === "draft" ? "the draft" : `#${card?.number ?? "?"}`;
 }
 
 function CardView({ card, selected }: { card: Card; selected: boolean }) {

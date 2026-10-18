@@ -1,7 +1,7 @@
 import { render } from "ink-testing-library";
 import { describe, expect, it, vi } from "vitest";
 import type { BoardColumn, Card, Comment } from "../../src/domain/board.js";
-import { Board } from "../../src/ui/board/Board.js";
+import { Board, type BoardProps } from "../../src/ui/board/Board.js";
 import { TaskView } from "../../src/ui/board/TaskView.js";
 
 // ink-testing-library renders into a 100-column terminal: three columns fit.
@@ -53,7 +53,7 @@ const projects = [
   { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" as const },
   { id: "PVT_2", number: 5, title: "Side project", owner: "acme", ownerType: "organization" as const },
 ];
-const projectProps = { projects, currentProjectId: "PVT_1", onSwitchProject: () => {} };
+const projectProps = { projects, currentProjectId: "PVT_1", onSwitchProject: () => {}, onStart: () => {} };
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
@@ -181,21 +181,23 @@ describe("TaskView comments", () => {
 });
 
 describe("Starting a task", () => {
-  const board = (agentList = agents) =>
+  const board = (agentList = agents, onStart: BoardProps["onStart"] = () => {}, cols = columns) =>
     render(
       <Board
         title="Portfolio / Status"
-        columns={columns}
+        columns={cols}
         drift={[]}
         loadComments={noComments}
         agents={agentList}
         defaultAgentId="claude-code"
         {...projectProps}
+        onStart={onStart}
       />,
     );
 
-  it("asks for the agent, then the model, and confirms the choice", async () => {
-    const { lastFrame, stdin } = board();
+  it("asks for the agent, then the model, and hands the card over", async () => {
+    const onStart = vi.fn();
+    const { lastFrame, stdin } = board(agents, onStart);
     await tick();
 
     stdin.write("s");
@@ -210,9 +212,35 @@ describe("Starting a task", () => {
     stdin.write(DOWN);
     await vi.waitFor(() => expect(lastFrame()).toContain("› Opus"));
     stdin.write(ENTER);
-    await vi.waitFor(() =>
-      expect(lastFrame()).toContain("Ready to start #3 with Claude Code (Opus). Launching the agent comes next."),
-    );
+    await vi.waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
+    const [card, choice] = onStart.mock.calls[0]!;
+    expect(card).toMatchObject({ number: 3, repo: "LuizKirsch/portfolio" });
+    expect(choice).toEqual({ agentId: "claude-code", model: "opus" });
+  });
+
+  it("passes no model when Default is chosen", async () => {
+    const onStart = vi.fn();
+    const { lastFrame, stdin } = board(agents, onStart);
+    await tick();
+
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("1. Agent"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› Default"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
+    expect(onStart.mock.calls[0]![1]).toEqual({ agentId: "claude-code", model: undefined });
+  });
+
+  it("refuses drafts, which have no repository", async () => {
+    const draft: Card = { ...card(1, "Idea"), kind: "draft", repo: undefined };
+    const onStart = vi.fn();
+    const { lastFrame, stdin } = board(agents, onStart, [column("Pronto para IA", [draft], "ready")]);
+    await tick();
+
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Drafts have no repository yet"));
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   it("goes back a step with Esc and cancels from the first step", async () => {
@@ -227,7 +255,7 @@ describe("Starting a task", () => {
     await vi.waitFor(() => expect(lastFrame()).toContain("› Claude Code"));
     stdin.write(ESC);
     await vi.waitFor(() => expect(lastFrame()).toContain("To do"));
-    expect(lastFrame()).not.toContain("Ready to start");
+    expect(lastFrame()).not.toContain("1. Agent");
   });
 
   it("can be started from the card details", async () => {
