@@ -113,13 +113,26 @@ the latest 100).
 
 Press `s` on a card in the `ready` column. tako asks which agent to use and
 then which model, starting with the default agent from `tako init`. Choosing
-**Default** lets the agent use its own default model. Cards in other columns
-cannot be started.
+**Default** lets the agent use its own default model. Cards in other columns,
+and drafts (they have no repository yet), cannot be started.
 
-> Launching the agent is not built yet: for now tako confirms the choice and
-> goes back to the board. When it lands, tako will run the agent inside the
-> issue's repository and create `.tako/rules.md` there: the rules you want the
-> agent to follow, meant to be committed.
+tako then opens the agent inside the issue's repository:
+
+1. **Finding the repository.** tako uses the folder it remembers for that
+   repository, or the current folder when it is that repository. Otherwise it
+   asks where the repository is cloned (it checks the folder's `origin`) and
+   remembers the answer in your config, per repository.
+2. **Rules.** The first time, it creates `.tako/rules.md` in the repository:
+   how you want the agent to work. Edit it freely and commit it.
+3. **The agent.** Claude Code opens with the chosen model and, as its first
+   message, the issue (description and comments) and how to work: create the
+   branch `tako/<number>-<title>` from your base branch, follow the rules,
+   reference the issue in commits, and do not push or open a pull request.
+4. **Back to the board.** When you close the agent, the board opens again.
+
+> Not built yet: moving the card to the `in_progress` column, creating the
+> branch in tako itself (the agent does it for now), and delivering the work
+> as a pull request.
 
 Only the first 100 cards of a project are shown.
 
