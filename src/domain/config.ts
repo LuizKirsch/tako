@@ -4,7 +4,7 @@
 // The file lives in the user's config directory, never inside a repository:
 // it identifies the user's projects (IDs, titles) and must not be committed.
 // IDs are the source of truth; names are kept only for messages
-// ("column 'Pronto para IA' was removed").
+// ("column 'Ready for AI' was removed").
 //
 // Parsing is hand-written instead of using a schema library: the shape is
 // small, and this keeps the dependency list short. If the config grows,

@@ -1,6 +1,6 @@
 // Column roles: what each column of the user's board MEANS to tako.
 //
-// Every board names its columns differently ("Pronto para IA", "Ready", "Todo"...).
+// Every board names its columns differently ("Ready for AI", "Ready", "Todo"...).
 // tako never relies on names. The user maps each role to one option of a
 // single-select field (usually "Status"), and we store the option ID.
 //
