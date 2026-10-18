@@ -58,8 +58,11 @@ describe("buildTaskPrompt", () => {
     });
 
     expect(prompt).toContain("Work on GitHub issue #3 in LuizKirsch/portfolio: Corrigir a página de login");
-    expect(prompt).toContain("create the branch `tako/3-corrigir-a-pagina-de-login` from `main`");
-    expect(prompt).toContain("Follow the rules in `.tako/rules.md`");
+    expect(prompt).toContain("on the branch `tako/3-corrigir-a-pagina-de-login` (from `main`)");
+    expect(prompt).toContain("Follow the repository's own instructions first (`CLAUDE.md`, `AGENTS.md`");
+    expect(prompt).toContain("Then follow the rules in `.tako/rules.md`");
+    expect(prompt).toContain("Use the repository's commit convention");
+    expect(prompt.indexOf("repository's own instructions")).toBeLessThan(prompt.indexOf(".tako/rules.md"));
     expect(prompt).toContain("Do not push and do not open a pull request");
     expect(prompt).toContain("## Issue description\n## Checklist\n- [ ] Fix it");
     expect(prompt).toContain("## Comments (1)\n\n### @alice · 2026-01-02\nAlso check mobile.");
