@@ -38,6 +38,7 @@ export interface BoardProps {
   tasks: Readonly<Record<string, TaskStatus>>; // background agents, by card (itemId)
   pullRequests: PullRequestActions;
   onSwitchProject: (projectId: string) => void;
+  onAddProject: () => void;
   onStart: (card: Card, choice: StartChoice) => void;
   onAttach: (card: Card) => void;
 }
@@ -130,6 +131,7 @@ export function Board(props: BoardProps) {
         projects={props.projects}
         currentId={props.currentProjectId}
         onConfirm={props.onSwitchProject}
+        onAdd={props.onAddProject}
         onCancel={() => setChoosingProject(false)}
         isActive={isRawModeSupported}
       />

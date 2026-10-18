@@ -59,6 +59,7 @@ const projectProps = {
   tasks: {},
   pullRequests: { find: async () => undefined, create: async () => ({ url: "" }) },
   onSwitchProject: () => {},
+  onAddProject: () => {},
   onStart: () => {},
   onAttach: () => {},
 };
@@ -341,7 +342,24 @@ describe("Switching projects", () => {
     await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
     expect(lastFrame()).toContain("› Portfolio (LuizKirsch #2, open now)");
     expect(lastFrame()).toContain("Side project (acme #5)");
-    expect(lastFrame()).toContain("run `tako init`");
+    expect(lastFrame()).toContain("+ Add a project");
+  });
+
+  it("adds a project from the last entry of the list", async () => {
+    const onAddProject = vi.fn();
+    const { lastFrame, stdin } = render(
+      <Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} onAddProject={onAddProject} />,
+    );
+    await tick();
+    stdin.write("p");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
+    for (let i = 0; i < projects.length; i++) {
+      stdin.write(DOWN);
+      await tick();
+    }
+    await vi.waitFor(() => expect(lastFrame()).toContain("› + Add a project"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(onAddProject).toHaveBeenCalledTimes(1));
   });
 
   it("switches to the chosen project", async () => {

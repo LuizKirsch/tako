@@ -16,7 +16,7 @@ import { NodeFiles } from "./infra/fs/node-files.js";
 import { GitCli } from "./infra/git/git-cli.js";
 import { GhCliGitHub } from "./infra/github/gh-cli-github.js";
 import { runBoard } from "./ui/board/run-board.js";
-import { runInitWizard } from "./ui/init/run-init-wizard.js";
+import { runAddProject, runInitWizard } from "./ui/init/run-init-wizard.js";
 import { runStart } from "./ui/start/run-start.js";
 
 const USAGE = `Usage:
@@ -47,6 +47,7 @@ switch (command) {
       start: (request, agents) => runStart(start, request, agents),
       load: (projectId) => loadBoard(deps, projectId),
       loadComments: (card) => loadComments(deps.github, card),
+      addProject: () => runAddProject(new InitProject(deps), configPath),
       sync: () => syncTasks({ ...deps, git }),
       attach: (itemId) => attachTask({ ...deps, git }, itemId),
       findPullRequest: (card) => findPullRequest({ ...deps, git }, card),

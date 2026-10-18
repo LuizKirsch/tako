@@ -32,6 +32,7 @@ export interface RunBoardOptions {
   start: (request: StartRequest, agents: readonly AgentChoice[]) => Promise<void>;
   sync: () => Promise<SyncResult>;
   attach: (itemId: string) => Promise<void>;
+  addProject: () => Promise<void>; // asks the tako init questions
   findPullRequest: (card: Card) => Promise<PullRequestInfo | undefined>;
   deliver: (card: Card, project: ProjectConfig) => Promise<Delivery>;
   configPath: string; // shown when the config cannot be read
@@ -40,7 +41,8 @@ export interface RunBoardOptions {
 type Session =
   | { kind: "quit"; exitCode: number }
   | { kind: "start"; request: StartRequest; agents: readonly AgentChoice[]; projectId: string }
-  | { kind: "attach"; itemId: string; projectId: string };
+  | { kind: "attach"; itemId: string; projectId: string }
+  | { kind: "add_project" };
 
 const SYNC_EVERY_MS = 5000;
 
@@ -50,12 +52,16 @@ export async function runBoard(options: RunBoardOptions): Promise<number> {
   for (;;) {
     const session = await boardSession(options, projectId);
     if (session.kind === "quit") return session.exitCode;
-    projectId = session.projectId;
+    // After adding a project, the board opens the last one added (or the
+    // same one, when nothing was added).
+    projectId = session.kind === "add_project" ? undefined : session.projectId;
     // Ink unrefs stdin when it unmounts, and clack does not ref it back:
     // without this, the process exits while the first prompt waits for input.
     process.stdin.ref();
     if (session.kind === "start") {
       await options.start(session.request, session.agents);
+    } else if (session.kind === "add_project") {
+      await options.addProject();
     } else {
       console.log("Opening the agent. Leave it with Ctrl+Z to come back to the board; it keeps running.");
       await options.attach(session.itemId);
@@ -143,6 +149,10 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
           },
         }}
           onSwitchProject={(id) => void open(id)}
+        onAddProject={() => {
+          session = { kind: "add_project" };
+          app.unmount();
+        }}
           onAttach={(card) => {
             session = { kind: "attach", itemId: card.itemId, projectId: project.project.id };
             app.unmount();
