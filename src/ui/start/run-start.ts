@@ -29,6 +29,13 @@ export async function runStart(start: StartTask, request: StartRequest, agents: 
       p.log.info(`Created ${RULES_FILE} with suggested rules for the agent. Edit and commit it when you like.`);
     }
 
+    try {
+      p.log.info(`Moved to "${await start.moveToInProgress(request)}".`);
+    } catch (error) {
+      // The work can still happen; the card is moved by hand later.
+      p.log.warn(`Could not move the card: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     const agent = agents.find((a) => a.id === request.agentId);
     const model = agent?.models.find((m) => m.id === request.model)?.label ?? "default model";
     p.outro(`Opening ${agent?.displayName ?? request.agentId} (${model}). Close it to come back to the board.`);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { StartTask, type StartRequest } from "../../src/app/start-task.js";
 import type { Card } from "../../src/domain/board.js";
-import { CONFIG_FILE, type TakoConfig } from "../../src/domain/config.js";
+import { CONFIG_FILE, type ProjectConfig, type TakoConfig } from "../../src/domain/config.js";
 import { RECOMMENDED_RULES, RULES_FILE } from "../../src/templates/recommended-rules.js";
 import { FakeGit, FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
@@ -19,6 +19,18 @@ const card: Card = {
   body: "Make it work.",
   labels: [],
   assignees: [],
+};
+
+const project: ProjectConfig = {
+  project: { id: "PVT_1", number: 1, title: "Board", owner: "LuizKirsch", ownerType: "user" },
+  columnField: { id: "F1", name: "Status" },
+  roles: {
+    ready: { optionId: "o-ready", name: "Ready" },
+    in_progress: { optionId: "o-doing", name: "Doing" },
+    delivery: { optionId: "o-review", name: "Review" },
+  },
+  agent: { default: "claude-code" },
+  baseBranch: "main",
 };
 
 const config: TakoConfig = { version: 1, projects: [] };
@@ -46,7 +58,7 @@ function setup(options: { repos?: Record<string, string>; cwd?: string; git?: Fa
     cwd: options.cwd ?? "/somewhere/else",
   });
   const savedRepos = () => JSON.parse(files.files.get(CONFIG_FILE) ?? "{}").repos;
-  return { start, agent, repoFiles, savedRepos };
+  return { start, agent, github, repoFiles, savedRepos };
 }
 
 describe("StartTask.findRepo", () => {
@@ -107,8 +119,17 @@ describe("StartTask.prepareRepo", () => {
   });
 });
 
+const request: StartRequest = { card, agentId: "claude-code", model: "opus", project };
+
+describe("StartTask.moveToInProgress", () => {
+  it("sets the card's column to the in_progress option", async () => {
+    const { start, github } = setup();
+    await expect(start.moveToInProgress(request)).resolves.toBe("Doing");
+    expect(github.moves).toEqual([{ projectId: "PVT_1", itemId: "PVTI_1", fieldId: "F1", optionId: "o-doing" }]);
+  });
+});
+
 describe("StartTask.launch", () => {
-  const request: StartRequest = { card, agentId: "claude-code", model: "opus", baseBranch: "main" };
 
   it("opens the agent in the repository with the issue and its comments", async () => {
     const { start, agent } = setup();

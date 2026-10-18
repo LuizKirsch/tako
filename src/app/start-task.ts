@@ -5,6 +5,7 @@
 //                    that repository; otherwise the UI asks
 //   useRepoAt()   -> checks a folder the user typed and remembers it
 //   prepareRepo() -> creates .tako/rules.md there the first time
+//   moveToInProgress() -> moves the card to the in_progress column
 //   launch()      -> opens the agent in that folder with the issue as the
 //                    first message, and waits until the user closes it
 //
@@ -12,7 +13,7 @@
 // with issues from several repositories works too.
 
 import type { Card } from "../domain/board.js";
-import { rememberRepo, repoPath } from "../domain/config.js";
+import { rememberRepo, repoPath, type ProjectConfig } from "../domain/config.js";
 import { buildTaskPrompt, sameRepo } from "../domain/task.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
@@ -35,7 +36,7 @@ export interface StartRequest {
   card: Card; // has a repository: the board refuses drafts
   agentId: string;
   model: string | undefined;
-  baseBranch: string;
+  project: ProjectConfig; // the board the card came from
 }
 
 export type UseRepoResult =
@@ -78,13 +79,27 @@ export class StartTask {
     return true;
   }
 
+  // Returns the name of the column the card went to.
+  async moveToInProgress({ card, project }: StartRequest): Promise<string> {
+    // Required by parseConfig; the check only satisfies the type.
+    const target = project.roles.in_progress;
+    if (!target) throw new Error("This project has no in_progress column. Run `tako init` again.");
+    await this.deps.github.moveCard({
+      projectId: project.project.id,
+      itemId: card.itemId,
+      fieldId: project.columnField.id,
+      optionId: target.optionId,
+    });
+    return target.name;
+  }
+
   // Resolves with the agent's exit code once the user closes it.
   async launch(request: StartRequest, root: string): Promise<number> {
     const agent = this.deps.agents.find((a) => a.id === request.agentId);
     if (!agent) throw new Error(`Unknown agent "${request.agentId}".`);
 
     const comments = await loadComments(this.deps.github, request.card);
-    const prompt = buildTaskPrompt({ card: request.card, comments, baseBranch: request.baseBranch, rulesFile: RULES_FILE });
+    const prompt = buildTaskPrompt({ card: request.card, comments, baseBranch: request.project.baseBranch, rulesFile: RULES_FILE });
     return agent.launch({ cwd: root, model: request.model, prompt });
   }
 

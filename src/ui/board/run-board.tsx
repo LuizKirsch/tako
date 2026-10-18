@@ -96,7 +96,7 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
         currentProjectId={project.project.id}
         onSwitchProject={(id) => void open(id)}
         onStart={(card, choice) => {
-          const request = { card, ...choice, baseBranch: project.baseBranch };
+          const request = { card, ...choice, project };
           session = { kind: "start", request, agents, projectId: project.project.id };
           // Leave the alternate screen: the agent needs the real terminal.
           app.unmount();
