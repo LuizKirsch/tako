@@ -1,28 +1,45 @@
 // Port: an AI coding agent tako can open (Claude Code, Codex CLI...).
 //
 // Each agent declares the models it accepts, so the start picker works the
-// same for every agent, and knows how to open itself on a task.
+// same for every agent. A task runs as a background session: tako starts it,
+// goes back to the board, and checks on it until it is done.
 
 export interface AgentModel {
   id: string; // passed to the agent as is, e.g. "opus"
-  label: string; // shown to the user, e.g. "Opus"
+  label: string;
+}
+
+import type { AgentState } from "../domain/task.js";
+
+export type { AgentState };
+
+export interface AgentSession {
+  id: string;
+  state: AgentState;
 }
 
 export interface AgentAdapter {
-  id: string; // stored in the config, e.g. "claude-code"
-  displayName: string; // shown to the user, e.g. "Claude Code"
-  // Choices offered when starting a task. Not choosing one keeps the
+  id: string;
+  displayName: string;
+  // Models offered in the start picker. The picker also offers "Default": the
   // agent's own default model.
   models: readonly AgentModel[];
   isInstalled(): Promise<boolean>;
-  // Opens an interactive session in `cwd`, attached to the user's terminal,
-  // with `prompt` as the first message. Resolves with the agent's exit code
-  // when the user closes it.
-  launch(options: LaunchOptions): Promise<number>;
+  // Starts a background session in `cwd` with `prompt` as the first message.
+  // Resolves with the session id as soon as it is running.
+  start(options: LaunchOptions): Promise<string>;
+  // The agent's background sessions, to follow the ones tako started.
+  sessions(): Promise<AgentSession[]>;
+  // Hands the terminal to a session, so the user can answer it. Resolves when
+  // the user leaves it; the session keeps running.
+  attach(sessionId: string): Promise<void>;
+  // Stops a session; its conversation is kept by the agent.
+  stop(sessionId: string): Promise<void>;
 }
 
 export interface LaunchOptions {
   cwd: string;
   model: string | undefined; // undefined = the agent's default
   prompt: string;
+  name: string; // shown in the agent's own session list
 }
