@@ -5,6 +5,8 @@ import {
   createProjectConfig,
   detectConfigDrift,
   parseConfig,
+  rememberRepo,
+  repoPath,
   type ProjectConfig,
   type TakoConfig,
 } from "../../src/domain/config.js";
@@ -161,5 +163,27 @@ describe("detectConfigDrift", () => {
 
   it("reports a removed field", () => {
     expect(detectConfigDrift(validProject, [])).toEqual([{ kind: "field_missing", fieldName: "Status" }]);
+  });
+});
+
+describe("repository folders", () => {
+  it("remembers a folder per repository, case-insensitively", () => {
+    const config = rememberRepo(validConfig, "LuizKirsch/Portfolio", "C:/code/portfolio");
+    expect(repoPath(config, "luizkirsch/portfolio")).toBe("C:/code/portfolio");
+    expect(repoPath(config, "LuizKirsch/other")).toBeUndefined();
+  });
+
+  it("keeps the folders when a project is added", () => {
+    const config = addProject(rememberRepo(validConfig, "a/b", "/code/b"), project("PVT_2"));
+    expect(repoPath(config, "a/b")).toBe("/code/b");
+  });
+
+  it("parses the folders and reports a bad one", () => {
+    const raw = { ...validConfig, repos: { "LuizKirsch/Portfolio": "/code/portfolio" } };
+    expect(parseConfig(raw)).toEqual({
+      ok: true,
+      value: { ...validConfig, repos: { "luizkirsch/portfolio": "/code/portfolio" } },
+    });
+    expect(parseConfig({ ...validConfig, repos: { "a/b": "" } })).toMatchObject({ ok: false, errors: [{ path: "repos.a/b" }] });
   });
 });

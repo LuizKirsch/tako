@@ -48,6 +48,10 @@ export interface TakoConfig {
   version: typeof CONFIG_VERSION;
   lastProjectId?: string; // opened by default
   projects: ProjectConfig[];
+  // Where each repository is cloned on this computer, by "owner/name"
+  // (lowercase). Per repository, not per project: a project can hold
+  // issues from several repositories.
+  repos?: Record<string, string>;
 }
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; errors: E[] };
@@ -87,7 +91,16 @@ export function addProject(config: TakoConfig | undefined, project: ProjectConfi
   const projects = config?.projects ?? [];
   const index = projects.findIndex((p) => p.project.id === project.project.id);
   const next = index === -1 ? [...projects, project] : projects.map((p, i) => (i === index ? project : p));
-  return { version: CONFIG_VERSION, lastProjectId: project.project.id, projects: next };
+  return { ...config, version: CONFIG_VERSION, lastProjectId: project.project.id, projects: next };
+}
+
+// Remembers where a repository is cloned, replacing an older path.
+export function rememberRepo(config: TakoConfig, repo: string, path: string): TakoConfig {
+  return { ...config, repos: { ...config.repos, [repo.toLowerCase()]: path } };
+}
+
+export function repoPath(config: TakoConfig, repo: string): string | undefined {
+  return config.repos?.[repo.toLowerCase()];
 }
 
 // The project to open: the requested one, else the last opened, else the
@@ -133,9 +146,28 @@ export function parseConfig(raw: unknown): Result<TakoConfig, ConfigParseError> 
     });
   }
 
+  const repos: Record<string, string> = {};
+  if (raw.repos !== undefined) {
+    if (!isObject(raw.repos)) fail("repos", "must be an object");
+    else {
+      for (const [repo, path] of Object.entries(raw.repos)) {
+        if (typeof path === "string" && path.trim()) repos[repo.toLowerCase()] = path;
+        else fail(`repos.${repo}`, "must be a non-empty string");
+      }
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
   const lastProjectId = raw.lastProjectId as string | undefined;
-  return { ok: true, value: { version: CONFIG_VERSION, ...(lastProjectId && { lastProjectId }), projects } };
+  return {
+    ok: true,
+    value: {
+      version: CONFIG_VERSION,
+      ...(lastProjectId && { lastProjectId }),
+      projects,
+      ...(Object.keys(repos).length > 0 && { repos }),
+    },
+  };
 }
 
 // Returns the project config, or undefined after reporting what is wrong.
