@@ -4,7 +4,7 @@ import {
   detectConfigDrift,
   ignoreConfigFile,
   parseConfig,
-  type GhRelayConfig,
+  type TakoConfig,
 } from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 
@@ -18,9 +18,9 @@ const field: ColumnField = {
   ],
 };
 
-const validConfig: GhRelayConfig = {
+const validConfig: TakoConfig = {
   version: 1,
-  project: { id: "PVT_1", number: 3, title: "gh-relay", owner: "LuizKirsch", ownerType: "user" },
+  project: { id: "PVT_1", number: 3, title: "tako", owner: "LuizKirsch", ownerType: "user" },
   columnField: { id: "F1", name: "Status" },
   roles: {
     ready: { optionId: "o-ready", name: "Pronto para IA" },
@@ -29,7 +29,7 @@ const validConfig: GhRelayConfig = {
   },
   agent: { default: "claude-code" },
   baseBranch: "main",
-  rulesFile: ".gh-relay/rules.md",
+  rulesFile: ".tako/rules.md",
 };
 
 describe("createConfig", () => {
@@ -112,16 +112,16 @@ describe("detectConfigDrift", () => {
 
 describe("ignoreConfigFile", () => {
   it("creates the entry when there is no .gitignore", () => {
-    expect(ignoreConfigFile(undefined)).toBe(".gh-relay.json\n");
+    expect(ignoreConfigFile(undefined)).toBe(".tako.json\n");
   });
 
   it("appends on a new line, keeping CRLF endings", () => {
-    expect(ignoreConfigFile("dist/")).toBe("dist/\n.gh-relay.json\n");
-    expect(ignoreConfigFile("dist/\r\n")).toBe("dist/\r\n.gh-relay.json\r\n");
+    expect(ignoreConfigFile("dist/")).toBe("dist/\n.tako.json\n");
+    expect(ignoreConfigFile("dist/\r\n")).toBe("dist/\r\n.tako.json\r\n");
   });
 
   it("returns undefined when the file is already listed", () => {
-    expect(ignoreConfigFile("dist/\r\n.gh-relay.json\r\n")).toBeUndefined();
-    expect(ignoreConfigFile("  /.gh-relay.json  \n")).toBeUndefined();
+    expect(ignoreConfigFile("dist/\r\n.tako.json\r\n")).toBeUndefined();
+    expect(ignoreConfigFile("  /.tako.json  \n")).toBeUndefined();
   });
 });

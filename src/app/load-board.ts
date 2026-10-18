@@ -1,11 +1,11 @@
-// Use case: open the board (`gh-relay` with no command).
+// Use case: open the board (`tako` with no command).
 //
 // Reads the config, fetches the project's fields and cards in parallel and
 // groups the cards into columns. When the board changed after init (drift),
 // the board still opens, read-only, and the UI explains what to fix.
 
 import { buildBoard, type BoardColumn, type Card, type Comment } from "../domain/board.js";
-import { detectConfigDrift, type ConfigDrift, type ConfigParseError, type GhRelayConfig } from "../domain/config.js";
+import { detectConfigDrift, type ConfigDrift, type ConfigParseError, type TakoConfig } from "../domain/config.js";
 import type { RepoFiles } from "../ports/files.js";
 import type { GitHubPort } from "../ports/github.js";
 import { loadConfig } from "./config-file.js";
@@ -18,7 +18,7 @@ export interface BoardDeps {
 export type BoardResult =
   | { status: "no_config" }
   | { status: "invalid_config"; errors: ConfigParseError[] }
-  | { status: "ok"; config: GhRelayConfig; columns: BoardColumn[]; drift: ConfigDrift[] };
+  | { status: "ok"; config: TakoConfig; columns: BoardColumn[]; drift: ConfigDrift[] };
 
 export async function loadBoard(deps: BoardDeps): Promise<BoardResult> {
   const loaded = await loadConfig(deps.files);

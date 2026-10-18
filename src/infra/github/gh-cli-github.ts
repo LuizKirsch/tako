@@ -1,7 +1,7 @@
 // GitHubPort implemented with `gh api graphql`.
 //
 // Why `gh` instead of an HTTP client: authentication is already solved
-// (the user's `gh auth login`), and no token ever passes through gh-relay.
+// (the user's `gh auth login`), and no token ever passes through tako.
 // Testability comes from the GhRunner seam, not from owning the HTTP layer.
 
 import { GitHubError, type AuthFixKind, type GitHubPort, type ProjectSummary } from "../../ports/github.js";

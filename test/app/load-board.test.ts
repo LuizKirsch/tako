@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadBoard, loadComments } from "../../src/app/load-board.js";
 import type { Card } from "../../src/domain/board.js";
-import { CONFIG_FILE, type GhRelayConfig } from "../../src/domain/config.js";
+import { CONFIG_FILE, type TakoConfig } from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 import { FakeGitHub, MemoryFiles } from "../fakes/index.js";
 
@@ -15,7 +15,7 @@ const status: ColumnField = {
   ],
 };
 
-const config: GhRelayConfig = {
+const config: TakoConfig = {
   version: 1,
   project: { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" },
   columnField: { id: "F_status", name: "Status" },
@@ -26,7 +26,7 @@ const config: GhRelayConfig = {
   },
   agent: { default: "claude-code" },
   baseBranch: "main",
-  rulesFile: ".gh-relay/rules.md",
+  rulesFile: ".tako/rules.md",
 };
 
 const cards: Card[] = [

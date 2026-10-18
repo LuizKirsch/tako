@@ -1,4 +1,4 @@
-# gh-relay
+# tako
 
 CLI that picks a task from GitHub Projects, prepares the branch, opens an AI coding
 agent with the issue context, and delivers the work as a pull request.

@@ -1,4 +1,4 @@
-// Use case: `gh-relay init`.
+// Use case: `tako init`.
 //
 // It does not ask questions itself. The UI drives the wizard and calls these
 // steps in order, so the same use case works with any UI (and in tests):
@@ -9,7 +9,7 @@
 //   validateRoles() -> live feedback while the user maps roles
 //   finish()        -> builds, saves the config and creates the rules file
 
-import { createConfig, ignoreConfigFile, type GhRelayConfig } from "../domain/config.js";
+import { createConfig, ignoreConfigFile, type TakoConfig } from "../domain/config.js";
 import { validateRoleMapping, type ColumnField, type RoleMapping, type RoleMappingError } from "../domain/roles.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { RepoFiles } from "../ports/files.js";
@@ -40,7 +40,7 @@ export interface InitChoices {
 const GITIGNORE = ".gitignore";
 
 export type InitOutcome =
-  | { ok: true; config: GhRelayConfig; rulesFileCreated: boolean; gitignoreUpdated: boolean }
+  | { ok: true; config: TakoConfig; rulesFileCreated: boolean; gitignoreUpdated: boolean }
   | { ok: false; errors: RoleMappingError[] };
 
 export class InitProject {

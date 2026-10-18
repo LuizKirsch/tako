@@ -1,4 +1,4 @@
-// Port: an AI coding agent gh-relay can open (Claude Code, Codex CLI...).
+// Port: an AI coding agent tako can open (Claude Code, Codex CLI...).
 //
 // Only detection exists for now, because `init` needs to know which agents
 // are installed. Launching with the task context (`buildLaunch`) arrives with

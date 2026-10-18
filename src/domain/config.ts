@@ -1,4 +1,4 @@
-// The .gh-relay.json config: shape, parsing and drift detection.
+// The .tako.json config: shape, parsing and drift detection.
 //
 // The file identifies the user's project (IDs, titles), so it stays on the
 // machine: init adds it to .gitignore and it must never be committed.
@@ -20,9 +20,9 @@ import {
   type RoleMappingError,
 } from "./roles.js";
 
-export const CONFIG_FILE = ".gh-relay.json";
+export const CONFIG_FILE = ".tako.json";
 export const CONFIG_VERSION = 1;
-export const DEFAULT_RULES_FILE = ".gh-relay/rules.md";
+export const DEFAULT_RULES_FILE = ".tako/rules.md";
 
 // Returns the .gitignore content with CONFIG_FILE added, or undefined when it
 // is already listed. Keeps the file's line endings.
@@ -47,7 +47,7 @@ export interface ProjectRef {
   ownerType: OwnerType;
 }
 
-export interface GhRelayConfig {
+export interface TakoConfig {
   version: typeof CONFIG_VERSION;
   project: ProjectRef;
   columnField: { id: string; name: string };
@@ -73,7 +73,7 @@ export interface ConfigInput {
 }
 
 // Builds a config only if the role mapping is valid for the chosen field.
-export function createConfig(input: ConfigInput): Result<GhRelayConfig, RoleMappingError> {
+export function createConfig(input: ConfigInput): Result<TakoConfig, RoleMappingError> {
   const errors = validateRoleMapping(input.field, input.roles);
   if (errors.length > 0) return { ok: false, errors };
 
@@ -101,7 +101,7 @@ export interface ConfigParseError {
   message: string;
 }
 
-export function parseConfig(raw: unknown): Result<GhRelayConfig, ConfigParseError> {
+export function parseConfig(raw: unknown): Result<TakoConfig, ConfigParseError> {
   const errors: ConfigParseError[] = [];
   const fail = (path: string, message: string) => errors.push({ path, message });
 
@@ -162,7 +162,7 @@ export function parseConfig(raw: unknown): Result<GhRelayConfig, ConfigParseErro
   if (errors.length > 0) return { ok: false, errors };
 
   // Safe after the checks above; normalize optional roles (null -> absent).
-  const config = raw as unknown as GhRelayConfig;
+  const config = raw as unknown as TakoConfig;
   const normalizedRoles: RoleMapping = {};
   for (const role of ROLES) {
     const binding = config.roles[role];
@@ -182,7 +182,7 @@ export type ConfigDrift =
 // A renamed column keeps its option ID, so renaming alone is NOT drift:
 // only a removed option (or a removed field) breaks the config.
 // The caller opens the board read-only when this returns anything.
-export function detectConfigDrift(config: GhRelayConfig, fields: ColumnField[]): ConfigDrift[] {
+export function detectConfigDrift(config: TakoConfig, fields: ColumnField[]): ConfigDrift[] {
   const field = fields.find((f) => f.id === config.columnField.id);
   if (!field) return [{ kind: "field_missing", fieldName: config.columnField.name }];
 

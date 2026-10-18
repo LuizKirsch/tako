@@ -8,7 +8,7 @@ import { FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 const project: ProjectSummary = {
   id: "PVT_1",
   number: 3,
-  title: "gh-relay",
+  title: "tako",
   owner: "LuizKirsch",
   ownerType: "user",
   closed: false,
@@ -55,7 +55,7 @@ describe("InitProject.prepare", () => {
   });
 
   it("reports an existing but broken config instead of crashing", async () => {
-    const { init } = setup(new MemoryFiles({ ".gh-relay.json": "{ not json" }));
+    const { init } = setup(new MemoryFiles({ ".tako.json": "{ not json" }));
     const context = await init.prepare();
     expect(context.existingConfig.status).toBe("invalid");
   });
@@ -67,10 +67,10 @@ describe("InitProject.finish", () => {
     const outcome = await init.finish(choices);
 
     expect(outcome).toMatchObject({ ok: true, rulesFileCreated: true });
-    const saved = JSON.parse(files.files.get(".gh-relay.json") ?? "{}");
+    const saved = JSON.parse(files.files.get(".tako.json") ?? "{}");
     expect(saved.roles.ready.optionId).toBe("o-ready");
     expect(saved.project).not.toHaveProperty("closed");
-    expect(files.files.get(".gh-relay/rules.md")).toBe(RECOMMENDED_RULES);
+    expect(files.files.get(".tako/rules.md")).toBe(RECOMMENDED_RULES);
   });
 
   it("adds the config to .gitignore so it is never committed", async () => {
@@ -78,23 +78,23 @@ describe("InitProject.finish", () => {
     const outcome = await init.finish(choices);
 
     expect(outcome).toMatchObject({ ok: true, gitignoreUpdated: true });
-    expect(files.files.get(".gitignore")).toBe("node_modules/\n.gh-relay.json\n");
+    expect(files.files.get(".gitignore")).toBe("node_modules/\n.tako.json\n");
   });
 
   it("leaves .gitignore alone when the config is already ignored", async () => {
-    const { init, files } = setup(new MemoryFiles({ ".gitignore": "/.gh-relay.json\n" }));
+    const { init, files } = setup(new MemoryFiles({ ".gitignore": "/.tako.json\n" }));
     const outcome = await init.finish(choices);
 
     expect(outcome).toMatchObject({ ok: true, gitignoreUpdated: false });
-    expect(files.files.get(".gitignore")).toBe("/.gh-relay.json\n");
+    expect(files.files.get(".gitignore")).toBe("/.tako.json\n");
   });
 
   it("never overwrites rules the user already has", async () => {
-    const { init, files } = setup(new MemoryFiles({ ".gh-relay/rules.md": "my rules" }));
+    const { init, files } = setup(new MemoryFiles({ ".tako/rules.md": "my rules" }));
     const outcome = await init.finish(choices);
 
     expect(outcome).toMatchObject({ ok: true, rulesFileCreated: false });
-    expect(files.files.get(".gh-relay/rules.md")).toBe("my rules");
+    expect(files.files.get(".tako/rules.md")).toBe("my rules");
   });
 
   it("writes nothing when the role mapping is invalid", async () => {

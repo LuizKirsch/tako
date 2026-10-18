@@ -27,13 +27,13 @@ export async function runBoard(
   }
 
   if (result.status === "no_config") {
-    return finish(app, <Text>This repository is not configured yet. Run `gh-relay init`.</Text>, 1);
+    return finish(app, <Text>This repository is not configured yet. Run `tako init`.</Text>, 1);
   }
   if (result.status === "invalid_config") {
     return finish(
       app,
       <Box flexDirection="column">
-        <Text color="red">.gh-relay.json is invalid. Fix it or run `gh-relay init` again:</Text>
+        <Text color="red">.tako.json is invalid. Fix it or run `tako init` again:</Text>
         {result.errors.map((e) => (
           <Text key={e.path}>
             {"  "}

@@ -1,7 +1,7 @@
-// Column roles: what each column of the user's board MEANS to gh-relay.
+// Column roles: what each column of the user's board MEANS to tako.
 //
 // Every board names its columns differently ("Pronto para IA", "Ready", "Todo"...).
-// gh-relay never relies on names. The user maps each role to one option of a
+// tako never relies on names. The user maps each role to one option of a
 // single-select field (usually "Status"), and we store the option ID.
 //
 // This module is pure: no I/O, only types and rules.

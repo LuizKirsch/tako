@@ -1,4 +1,4 @@
-// The `gh-relay init` wizard.
+// The `tako init` wizard.
 //
 // Built with @clack/prompts instead of Ink: init is a straight sequence of
 // questions, which is exactly what clack does, with far less code than
@@ -30,7 +30,7 @@ const MISSING = "__missing__";
 
 // Returns the process exit code.
 export async function runInitWizard(init: InitProject): Promise<number> {
-  p.intro("gh-relay init");
+  p.intro("tako init");
   try {
     return await wizard(init);
   } catch (error) {
@@ -40,7 +40,7 @@ export async function runInitWizard(init: InitProject): Promise<number> {
     }
     if (error instanceof GitHubError) {
       p.log.error(error.message);
-      p.outro("Fix the problem above and run gh-relay init again.");
+      p.outro("Fix the problem above and run tako init again.");
       return 1;
     }
     throw error;
@@ -53,7 +53,7 @@ async function wizard(init: InitProject): Promise<number> {
 
   if (context.installedAgents.length === 0) {
     p.log.error("No supported AI agent was found on this machine.");
-    p.outro("Install Claude Code (https://docs.claude.com/en/docs/claude-code) and run gh-relay init again.");
+    p.outro("Install Claude Code (https://docs.claude.com/en/docs/claude-code) and run tako init again.");
     return 1;
   }
 
@@ -69,14 +69,14 @@ async function wizard(init: InitProject): Promise<number> {
       return 0;
     }
   } else if (context.existingConfig.status === "invalid") {
-    p.log.warn("The existing .gh-relay.json is invalid and will be replaced.");
+    p.log.warn("The existing .tako.json is invalid and will be replaced.");
   }
 
   // 2. Project.
   const openProjects = context.projects.filter((project) => !project.closed);
   if (openProjects.length === 0) {
     p.log.error("No open GitHub Projects found for your account or your organizations.");
-    p.outro("Create a project at https://github.com/users/<you>/projects and run gh-relay init again.");
+    p.outro("Create a project at https://github.com/users/<you>/projects and run tako init again.");
     return 1;
   }
 
@@ -99,7 +99,7 @@ async function wizard(init: InitProject): Promise<number> {
   );
   if (fields.length === 0) {
     p.log.error(`"${project.title}" has no single-select field to use as columns.`);
-    p.outro("Add a single-select field (like Status) to the project and run gh-relay init again.");
+    p.outro("Add a single-select field (like Status) to the project and run tako init again.");
     return 1;
   }
   const field = await chooseField(fields);
@@ -125,8 +125,8 @@ async function wizard(init: InitProject): Promise<number> {
     );
 
     if (answer === MISSING) {
-      p.log.error(`gh-relay needs a column for "${role}" (${ROLE_DESCRIPTIONS[role]}).`);
-      p.outro(`Add it as an option of the "${field.name}" field on the board, then run gh-relay init again.`);
+      p.log.error(`tako needs a column for "${role}" (${ROLE_DESCRIPTIONS[role]}).`);
+      p.outro(`Add it as an option of the "${field.name}" field on the board, then run tako init again.`);
       return 1;
     }
     if (answer === SKIP) continue;
@@ -173,14 +173,14 @@ async function wizard(init: InitProject): Promise<number> {
   p.note(summary.join("\n"), `${project.title} / ${field.name}`);
 
   if (outcome.gitignoreUpdated) {
-    p.log.info("Added .gh-relay.json to .gitignore: it identifies your project and stays on this machine.");
+    p.log.info("Added .tako.json to .gitignore: it identifies your project and stays on this machine.");
   }
   if (!outcome.rulesFileCreated) p.log.info(`Kept your existing ${outcome.config.rulesFile}.`);
 
   p.outro(
     outcome.rulesFileCreated
-      ? `Done. Commit ${outcome.config.rulesFile} (never .gh-relay.json), then run gh-relay.`
-      : "Done. Run gh-relay to open the board.",
+      ? `Done. Commit ${outcome.config.rulesFile} (never .tako.json), then run tako.`
+      : "Done. Run tako to open the board.",
   );
   return 0;
 }

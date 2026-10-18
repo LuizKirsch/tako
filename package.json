@@ -1,5 +1,5 @@
 {
-  "name": "gh-relay",
+  "name": "@luizkirsch/tako",
   "version": "1.0.0",
   "scripts": {
     "test": "vitest",
@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/LuizKirsch/gh-relay#readme",
   "bin": {
-    "gh-relay": "./dist/cli.js"
+    "tako": "./dist/cli.js"
   },
   "files": [
     "dist"

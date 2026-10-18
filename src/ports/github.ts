@@ -1,4 +1,4 @@
-// Port: everything gh-relay needs from GitHub.
+// Port: everything tako needs from GitHub.
 //
 // The app layer depends on this interface, never on `gh` or HTTP directly.
 // Tests use an in-memory fake; production uses `gh api graphql` (infra/github).
@@ -27,7 +27,7 @@ export interface GitHubPort {
   // Comments of an issue or pull request (Card.contentId), oldest first.
   listComments(contentId: string): Promise<Comment[]>;
   // Hands the terminal to gh's own auth flow (login or scope refresh).
-  // gh-relay never sees the token. Resolves true when gh succeeded.
+  // tako never sees the token. Resolves true when gh succeeded.
   fixAuth(kind: AuthFixKind): Promise<boolean>;
 }
 

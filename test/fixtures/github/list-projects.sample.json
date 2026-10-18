@@ -5,7 +5,7 @@
       "projectsV2": {
         "nodes": [
           { "id": "PVT_user_old", "number": 1, "title": "Old board", "closed": true },
-          { "id": "PVT_user_relay", "number": 3, "title": "gh-relay", "closed": false }
+          { "id": "PVT_user_relay", "number": 3, "title": "tako", "closed": false }
         ]
       },
       "organizations": {

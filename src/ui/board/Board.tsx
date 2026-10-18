@@ -166,7 +166,7 @@ function CardView({ card, selected }: { card: Card; selected: boolean }) {
 
 export function describeDrift(drift: ConfigDrift): string {
   if (drift.kind === "field_missing") {
-    return `The "${drift.fieldName}" field no longer exists on the project. Run gh-relay init again.`;
+    return `The "${drift.fieldName}" field no longer exists on the project. Run tako init again.`;
   }
-  return `Column "${drift.binding.name}" (${drift.role}) was removed from the board. Run gh-relay init again.`;
+  return `Column "${drift.binding.name}" (${drift.role}) was removed from the board. Run tako init again.`;
 }

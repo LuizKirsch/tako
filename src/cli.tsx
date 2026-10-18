@@ -13,8 +13,8 @@ import { runBoard } from "./ui/board/run-board.js";
 import { runInitWizard } from "./ui/init/run-init-wizard.js";
 
 const USAGE = `Usage:
-  gh-relay init    configure gh-relay for this repository
-  gh-relay         open the board`;
+  tako init    configure tako for this repository
+  tako         open the board`;
 
 const [command] = process.argv.slice(2);
 
