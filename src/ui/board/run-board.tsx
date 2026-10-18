@@ -37,6 +37,9 @@ export async function runBoard(options: RunBoardOptions): Promise<number> {
     const session = await boardSession(options, projectId);
     if (session.kind === "quit") return session.exitCode;
     projectId = session.projectId;
+    // Ink unrefs stdin when it unmounts, and clack does not ref it back:
+    // without this, the process exits while the first prompt waits for input.
+    process.stdin.ref();
     await options.start(session.request, session.agents);
   }
 }
