@@ -4,14 +4,15 @@
 // Boards often have more columns than fit the terminal, so only as many as
 // fit are shown (each at least MIN_COLUMN_WIDTH wide) and the view scrolls
 // sideways to keep the selected column visible.
-// Enter opens the card's details (TaskView). Starting the work on a card
-// arrives with the StartTask issue.
+// Enter opens the card's details (TaskView). `s` starts a ready card: it asks
+// for the agent and model (StartPicker); launching the agent comes next.
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
-import type { BoardColumn, Card, Comment } from "../../domain/board.js";
+import { canStart, type BoardColumn, type Card, type Comment } from "../../domain/board.js";
 import type { ConfigDrift } from "../../domain/config.js";
 import { ROLE_DESCRIPTIONS } from "../../domain/roles.js";
+import { StartPicker, type AgentChoice, type StartChoice } from "./StartPicker.js";
 import { TaskView } from "./TaskView.js";
 
 const MIN_COLUMN_WIDTH = 26;
@@ -24,9 +25,11 @@ export interface BoardProps {
   columns: BoardColumn[];
   drift: ConfigDrift[];
   loadComments: (card: Card) => Promise<Comment[]>;
+  agents: readonly AgentChoice[]; // installed agents
+  defaultAgentId: string; // preselected in the start picker
 }
 
-export function Board({ title, columns, drift, loadComments }: BoardProps) {
+export function Board({ title, columns, drift, loadComments, agents, defaultAgentId }: BoardProps) {
   const { exit } = useApp();
   // Without a keyboard (piped or non-interactive terminal) print once and quit.
   const { isRawModeSupported } = useStdin();
@@ -38,20 +41,50 @@ export function Board({ title, columns, drift, loadComments }: BoardProps) {
   const [col, setCol] = useState(() => Math.max(0, columns.findIndex((c) => c.role === "ready")));
   const [row, setRow] = useState(0);
   const [open, setOpen] = useState(false);
-  const cards = columns[col]?.cards ?? [];
+  const [starting, setStarting] = useState(false);
+  const [notice, setNotice] = useState<string>();
+  const column = columns[col];
+  const cards = column?.cards ?? [];
   const selectedRow = Math.min(row, Math.max(0, cards.length - 1));
   const selected = cards[selectedRow];
 
+  // From the board or the details. When the card cannot be started, go back
+  // to the board, where the reason is shown.
+  const requestStart = () => {
+    if (!selected) return;
+    if (!canStart(column)) {
+      const ready = columns.find((c) => c.role === "ready")?.name ?? "the ready column";
+      setNotice(`Only cards in "${ready}" can be started.`);
+      setOpen(false);
+    } else if (agents.length === 0) {
+      setNotice("No supported AI agent is installed. Install Claude Code and try again.");
+      setOpen(false);
+    } else {
+      setStarting(true);
+    }
+  };
+
+  const confirmStart = ({ agentId, model }: StartChoice) => {
+    const agent = agents.find((a) => a.id === agentId);
+    const modelLabel = agent?.models.find((m) => m.id === model)?.label ?? "default model";
+    setStarting(false);
+    setOpen(false);
+    // ponytail: placeholder until the agent launch lands (StartTask issue).
+    setNotice(`Ready to start ${cardRef(selected)} with ${agent?.displayName ?? agentId} (${modelLabel}). Launching the agent comes next.`);
+  };
+
   useInput(
     (input, key) => {
+      setNotice(undefined);
       if (input === "q" || key.escape) exit();
+      if (input === "s") requestStart();
       if (key.return && selected) setOpen(true);
       if (key.leftArrow) setCol((c) => Math.max(0, c - 1));
       if (key.rightArrow) setCol((c) => Math.min(columns.length - 1, c + 1));
       if (key.upArrow) setRow(Math.max(0, selectedRow - 1));
       if (key.downArrow) setRow(Math.min(Math.max(0, cards.length - 1), selectedRow + 1));
     },
-    { isActive: isRawModeSupported && !open },
+    { isActive: isRawModeSupported && !open && !starting },
   );
 
   const size = useWindowSize();
@@ -63,13 +96,27 @@ export function Board({ title, columns, drift, loadComments }: BoardProps) {
   const first = Math.min(Math.max(0, col - Math.floor(fit / 2)), columns.length - fit);
   const shown = columns.slice(first, first + fit);
 
+  if (starting && selected) {
+    return (
+      <StartPicker
+        card={selected}
+        agents={agents}
+        defaultAgentId={defaultAgentId}
+        onConfirm={confirmStart}
+        onCancel={() => setStarting(false)}
+        isActive={isRawModeSupported}
+      />
+    );
+  }
+
   if (open && selected) {
     return (
       <TaskView
         card={selected}
-        columnName={columns[col]?.name ?? ""}
+        columnName={column?.name ?? ""}
         loadComments={loadComments}
         onClose={() => setOpen(false)}
+        onStart={requestStart}
         onQuit={exit}
         isActive={isRawModeSupported}
       />
@@ -104,10 +151,16 @@ export function Board({ title, columns, drift, loadComments }: BoardProps) {
         ))}
       </Box>
 
-      <Text dimColor wrap="truncate-end">
-        {selected?.url ?? " "}
-      </Text>
-      <Text dimColor>←/→ column · ↑/↓ card · Enter open · q quit</Text>
+      {notice ? (
+        <Text color="yellow" wrap="truncate-end">
+          {notice}
+        </Text>
+      ) : (
+        <Text dimColor wrap="truncate-end">
+          {selected?.url ?? " "}
+        </Text>
+      )}
+      <Text dimColor>←/→ column · ↑/↓ card · Enter open · s start · q quit</Text>
     </Box>
   );
 }
@@ -144,6 +197,10 @@ function ColumnView(props: { column: BoardColumn; width: number; height: number;
       {below > 0 && <Text dimColor>↓ {below} more</Text>}
     </Box>
   );
+}
+
+function cardRef(card: Card | undefined): string {
+  return card?.kind === "draft" ? "the draft" : `#${card?.number ?? "?"}`;
 }
 
 function CardView({ card, selected }: { card: Card; selected: boolean }) {

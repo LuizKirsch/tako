@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBoard, NO_STATUS, type Card } from "../../src/domain/board.js";
+import { buildBoard, canStart, NO_STATUS, type Card } from "../../src/domain/board.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 
 const status: ColumnField = {
@@ -46,5 +46,17 @@ describe("buildBoard", () => {
 
   it("omits the trailing column when every card has a status", () => {
     expect(buildBoard(status, {}, [card("a", "o-done")]).map((c) => c.name)).not.toContain(NO_STATUS);
+  });
+});
+
+describe("canStart", () => {
+  const columns = buildBoard(status, { ready: { optionId: "o-ready", name: "Pronto para IA" } }, []);
+
+  it("allows only the column mapped to the ready role", () => {
+    expect(columns.map((c) => canStart(c))).toEqual([false, true, false]);
+  });
+
+  it("refuses when there is no column", () => {
+    expect(canStart(undefined)).toBe(false);
   });
 });

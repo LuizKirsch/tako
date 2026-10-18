@@ -45,13 +45,15 @@ export async function runBoard(
     );
   }
 
-  const { config, columns, drift } = result;
+  const { config, columns, drift, agents } = result;
   app.rerender(
     <Board
       title={`${config.project.title} / ${config.columnField.name}`}
       columns={columns}
       drift={drift}
       loadComments={loadComments}
+      agents={agents}
+      defaultAgentId={config.agent.default}
     />,
   );
   await app.waitUntilExit();

@@ -25,7 +25,7 @@ switch (command) {
     break;
   }
   case undefined: {
-    const deps = { github: new GhCliGitHub(), files: new NodeRepoFiles() };
+    const deps = { github: new GhCliGitHub(), files: new NodeRepoFiles(), agents: AGENTS };
     process.exitCode = await runBoard(
       () => loadBoard(deps),
       (card) => loadComments(deps.github, card),

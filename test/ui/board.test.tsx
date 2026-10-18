@@ -39,10 +39,20 @@ const ENTER = "\r";
 const ESC = "\u001B";
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 const noComments = async (): Promise<Comment[]> => [];
+const agents = [
+  {
+    id: "claude-code",
+    displayName: "Claude Code",
+    models: [
+      { id: "opus", label: "Opus" },
+      { id: "sonnet", label: "Sonnet" },
+    ],
+  },
+];
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     const frame = lastFrame() ?? "";
 
     // Both headers on the same line: columns are side by side.
@@ -54,7 +64,7 @@ describe("Board", () => {
   });
 
   it("moves between cards and columns with the arrow keys", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     await tick();
 
     stdin.write(DOWN);
@@ -73,7 +83,7 @@ describe("Board", () => {
 
   it("scrolls sideways when the columns do not fit", async () => {
     const many = ["A", "B", "C", "D", "E", "F"].map((name) => column(`Col ${name}`));
-    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} loadComments={noComments} />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     await tick();
 
     expect(lastFrame()).toContain("3 more ▶");
@@ -87,7 +97,7 @@ describe("Board", () => {
   });
 
   it("opens the selected card with Enter and goes back with Esc", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     await tick();
 
     stdin.write(DOWN);
@@ -108,7 +118,7 @@ describe("Board", () => {
   });
 
   it("does nothing on Enter in an empty column", async () => {
-    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} loadComments={noComments} />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     await tick();
     stdin.write(ENTER);
     await tick();
@@ -117,7 +127,7 @@ describe("Board", () => {
 
   it("shows drift warnings", () => {
     const drift = [{ kind: "field_missing" as const, fieldName: "Status" }];
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
     expect(lastFrame()).toContain('The "Status" field no longer exists');
   });
 });
@@ -130,6 +140,7 @@ describe("TaskView comments", () => {
         columnName="Pronto para IA"
         loadComments={loadComments}
         onClose={() => {}}
+        onStart={() => {}}
         onQuit={() => {}}
         isActive={false}
       />,
@@ -161,5 +172,83 @@ describe("TaskView comments", () => {
     const { lastFrame } = view(() => Promise.reject(new Error("HTTP 502")));
     await vi.waitFor(() => expect(lastFrame()).toContain("Could not load comments: HTTP 502"));
     expect(lastFrame()).toContain("- [ ] Body of Second task");
+  });
+});
+
+describe("Starting a task", () => {
+  const board = (agentList = agents) =>
+    render(
+      <Board
+        title="Portfolio / Status"
+        columns={columns}
+        drift={[]}
+        loadComments={noComments}
+        agents={agentList}
+        defaultAgentId="claude-code"
+      />,
+    );
+
+  it("asks for the agent, then the model, and confirms the choice", async () => {
+    const { lastFrame, stdin } = board();
+    await tick();
+
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Start #3 First task"));
+    expect(lastFrame()).toContain("1. Agent");
+    expect(lastFrame()).toContain("› Claude Code");
+
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(lastFrame()).toContain("1. Agent: Claude Code"));
+    expect(lastFrame()).toContain("› Default (Claude Code decides)");
+
+    stdin.write(DOWN);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› Opus"));
+    stdin.write(ENTER);
+    await vi.waitFor(() =>
+      expect(lastFrame()).toContain("Ready to start #3 with Claude Code (Opus). Launching the agent comes next."),
+    );
+  });
+
+  it("goes back a step with Esc and cancels from the first step", async () => {
+    const { lastFrame, stdin } = board();
+    await tick();
+
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("1. Agent"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(lastFrame()).toContain("1. Agent: Claude Code"));
+    stdin.write(ESC);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› Claude Code"));
+    stdin.write(ESC);
+    await vi.waitFor(() => expect(lastFrame()).toContain("To do"));
+    expect(lastFrame()).not.toContain("Ready to start");
+  });
+
+  it("can be started from the card details", async () => {
+    const { lastFrame, stdin } = board();
+    await tick();
+
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(lastFrame()).toContain("s start · Esc/Enter back"));
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Start #3 First task"));
+  });
+
+  it("refuses cards outside the ready column", async () => {
+    const { lastFrame, stdin } = board();
+    await tick();
+
+    stdin.write(LEFT);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› #9"));
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain('Only cards in "Pronto para IA" can be started.'));
+  });
+
+  it("explains when no agent is installed", async () => {
+    const { lastFrame, stdin } = board([]);
+    await tick();
+
+    stdin.write("s");
+    await vi.waitFor(() => expect(lastFrame()).toContain("No supported AI agent is installed."));
   });
 });

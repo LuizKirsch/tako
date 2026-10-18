@@ -14,6 +14,7 @@ export interface TaskViewProps {
   columnName: string;
   loadComments: (card: Card) => Promise<Comment[]>;
   onClose: () => void;
+  onStart: () => void;
   onQuit: () => void;
   isActive: boolean;
 }
@@ -30,7 +31,7 @@ interface Line {
   color?: string;
 }
 
-export function TaskView({ card, columnName, loadComments, onClose, onQuit, isActive }: TaskViewProps) {
+export function TaskView({ card, columnName, loadComments, onClose, onStart, onQuit, isActive }: TaskViewProps) {
   const size = useWindowSize();
   const [comments, setComments] = useState<CommentsState>({ status: "loading" });
   const [offset, setOffset] = useState(0);
@@ -56,6 +57,7 @@ export function TaskView({ card, columnName, loadComments, onClose, onQuit, isAc
   useInput(
     (input, key) => {
       if (input === "q") onQuit();
+      if (input === "s") onStart();
       if (key.escape || key.return || key.backspace || key.leftArrow) onClose();
       if (key.upArrow) setOffset((o) => Math.max(0, o - 1));
       if (key.downArrow) setOffset((o) => Math.min(maxOffset, o + 1));
@@ -92,7 +94,7 @@ export function TaskView({ card, columnName, loadComments, onClose, onQuit, isAc
         {start < maxOffset && <Text dimColor>↓ {maxOffset - start} more lines</Text>}
       </Box>
 
-      <Text dimColor>↑/↓ scroll · Esc/Enter back · q quit</Text>
+      <Text dimColor>↑/↓ scroll · s start · Esc/Enter back · q quit</Text>
     </Box>
   );
 }

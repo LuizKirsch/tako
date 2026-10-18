@@ -36,6 +36,12 @@ export interface BoardColumn {
 
 export const NO_STATUS = "No status";
 
+// Only cards in the "ready" column can be started: putting a card there is
+// how the user allows the AI to pick it up.
+export function canStart(column: BoardColumn | undefined): boolean {
+  return column?.role === "ready";
+}
+
 // Columns follow the field's option order (the order the user sees on GitHub).
 // Cards without a status, or with an option that no longer exists, go to a
 // trailing "No status" column, shown only when it has cards.
