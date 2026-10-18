@@ -1,5 +1,10 @@
 // Loads the board and renders it. The loader comes from the composition root,
 // so this file never touches infra.
+//
+// The board runs in the terminal's alternate screen, like vim or Claude Code:
+// it takes the whole terminal and, on exit, the previous content comes back.
+// Ink discards whatever is drawn there on exit, so messages meant to stay
+// (missing config, GitHub errors) are printed on the normal screen instead.
 
 import { Box, render, Text, type Instance } from "ink";
 import type { ReactNode } from "react";
@@ -13,7 +18,8 @@ export async function runBoard(
   load: () => Promise<BoardResult>,
   loadComments: (card: Card) => Promise<Comment[]>,
 ): Promise<number> {
-  const app = render(<Text dimColor>Loading the board…</Text>);
+  // Ignored by Ink when stdout is not a terminal (piped output, CI).
+  const app = render(<Text dimColor>Loading the board…</Text>, { alternateScreen: true });
 
   let result: BoardResult;
   try {
@@ -60,8 +66,10 @@ export async function runBoard(
   return 0;
 }
 
+// Leaves the alternate screen, then prints the message on the normal screen
+// so it is still there after tako exits.
 function finish(app: Instance, node: ReactNode, code: number): number {
-  app.rerender(node);
   app.unmount();
+  render(node).unmount();
   return code;
 }
