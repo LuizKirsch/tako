@@ -114,3 +114,27 @@ export const MOVE_CARD = /* GraphQL */ `
     }
   }
 `;
+
+// The repository's id (createPullRequest needs it) and the newest pull
+// request of the branch, in any state: shown in the card's details, and
+// reused when it is open so delivering twice does not fail.
+export const FIND_PULL_REQUEST = /* GraphQL */ `
+  query FindPullRequest($owner: String!, $name: String!, $head: String!) {
+    repository(owner: $owner, name: $name) {
+      id
+      pullRequests(headRefName: $head, first: 1, orderBy: { field: CREATED_AT, direction: DESC }) {
+        nodes { number url state }
+      }
+    }
+  }
+`;
+
+export const CREATE_PULL_REQUEST = /* GraphQL */ `
+  mutation CreatePullRequest($repositoryId: ID!, $base: String!, $head: String!, $title: String!, $body: String!) {
+    createPullRequest(
+      input: { repositoryId: $repositoryId, baseRefName: $base, headRefName: $head, title: $title, body: $body }
+    ) {
+      pullRequest { url }
+    }
+  }
+`;

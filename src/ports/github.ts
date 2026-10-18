@@ -24,6 +24,20 @@ export interface CardMove {
   optionId: string;
 }
 
+export interface PullRequestInput {
+  repo: string; // "owner/name"
+  base: string;
+  head: string; // branch already pushed
+  title: string;
+  body: string;
+}
+
+export interface PullRequestInfo {
+  number: number;
+  url: string;
+  state: "open" | "merged" | "closed";
+}
+
 export interface GitHubPort {
   // Projects of the authenticated user plus those of their organizations.
   listProjects(): Promise<ProjectSummary[]>;
@@ -35,6 +49,11 @@ export interface GitHubPort {
   listComments(contentId: string): Promise<Comment[]>;
   // Puts an item in another column: sets its single-select `fieldId` to `optionId`.
   moveCard(move: CardMove): Promise<void>;
+  // The newest pull request from branch `head`, in any state.
+  findPullRequest(repo: string, head: string): Promise<PullRequestInfo | undefined>;
+  // Opens a pull request, or returns the open one for the same branch.
+  // Resolves with its URL.
+  openPullRequest(input: PullRequestInput): Promise<string>;
   // Hands the terminal to gh's own auth flow (login or scope refresh).
   // tako never sees the token. Resolves true when gh succeeded.
   fixAuth(kind: AuthFixKind): Promise<boolean>;

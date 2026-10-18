@@ -165,3 +165,42 @@ describe("GhCliGitHub.moveCard", () => {
     expect(args).toEqual(expect.arrayContaining(["projectId=PVT_1", "itemId=PVTI_1", "fieldId=F1", "optionId=o-doing"]));
   });
 });
+
+describe("GhCliGitHub.openPullRequest", () => {
+  const input = { repo: "LuizKirsch/portfolio", base: "main", head: "tako/3-fix", title: "Fix", body: "Closes #3" };
+
+  // Answers the lookup first, then the creation.
+  const runner = (...stdouts: unknown[]) => {
+    const calls: string[][] = [];
+    const run = async (args: string[]) => {
+      calls.push(args);
+      return { exitCode: 0, stdout: JSON.stringify(stdouts[calls.length - 1]), stderr: "" };
+    };
+    return Object.assign(run, { calls });
+  };
+
+  it("creates the pull request in the repository", async () => {
+    const run = runner(
+      { data: { repository: { id: "R_1", pullRequests: { nodes: [] } } } },
+      { data: { createPullRequest: { pullRequest: { url: "https://github.com/LuizKirsch/portfolio/pull/7" } } } },
+    );
+    await expect(new GhCliGitHub(run).openPullRequest(input)).resolves.toBe("https://github.com/LuizKirsch/portfolio/pull/7");
+    expect(run.calls[0]).toEqual(expect.arrayContaining(["owner=LuizKirsch", "name=portfolio", "head=tako/3-fix"]));
+    expect(run.calls[1]).toEqual(expect.arrayContaining(["repositoryId=R_1", "base=main", "title=Fix", "body=Closes #3"]));
+  });
+
+  it("returns the open pull request of the branch instead of creating another", async () => {
+    const run = runner({ data: { repository: { id: "R_1", pullRequests: { nodes: [{ number: 5, url: "https://x/pull/5", state: "OPEN" }] } } } });
+    await expect(new GhCliGitHub(run).openPullRequest(input)).resolves.toBe("https://x/pull/5");
+    expect(run.calls).toHaveLength(1);
+  });
+
+  it("finds the newest pull request of the branch in any state", async () => {
+    const run = runner({ data: { repository: { id: "R_1", pullRequests: { nodes: [{ number: 4, url: "https://x/pull/4", state: "MERGED" }] } } } });
+    await expect(new GhCliGitHub(run).findPullRequest("LuizKirsch/portfolio", "tako/3-fix")).resolves.toEqual({
+      number: 4,
+      url: "https://x/pull/4",
+      state: "merged",
+    });
+  });
+});
