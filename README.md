@@ -94,12 +94,23 @@ sideways when they do not fit the terminal.
 | `←` `→` | Change column | Back to the board (`←`) |
 | `↑` `↓` | Change card | Scroll the description |
 | `Enter` | Open the card's details | Back to the board |
+| `s` | Start the selected card | Start this card |
 | `Esc` | Quit | Back to the board |
 | `q` | Quit | Quit |
 
 The details show the card's repository, column, state, labels, assignees,
 link, description and comments. Comments load when the card is opened (up to
 the latest 100).
+
+### 3. Start a task
+
+Press `s` on a card in the `ready` column. tako asks which agent to use and
+then which model, starting with the default agent from `tako init`. Choosing
+**Default** lets the agent use its own default model. Cards in other columns
+cannot be started.
+
+> Launching the agent is not built yet: for now tako confirms the choice and
+> goes back to the board.
 
 Only the first 100 cards of a project are shown.
 
