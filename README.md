@@ -5,9 +5,8 @@ A terminal tool that connects a GitHub Projects board to an AI coding agent.
 The goal is a full relay: pick a card from the board, prepare the branch, open
 the agent with the issue context, and deliver the work as a pull request.
 
-> **Status: early.** Today tako configures a repository and shows its
-> board. Starting a task (branch + agent) and delivering it (pull request) are
-> not built yet.
+> **Status: alpha.** The whole relay works with Claude Code: board, start,
+> background agent and pull request. Expect rough edges.
 
 ## Requirements
 
@@ -101,22 +100,30 @@ terminal. Press `p` to switch to another project.
 | `↑` `↓` | Change card | Scroll the description |
 | `Enter` | Open the card's details | Back to the board |
 | `s` | Start the selected card | Start this card |
+| `c` | | Create the pull request |
+| `a` | Open the card's agent session | |
 | `p` | Switch project | |
 | `Esc` | Quit | Back to the board |
 | `q` | Quit | Quit |
 
 The details show the card's repository, column, state, labels, assignees,
-link, description and comments. Comments load when the card is opened (up to
-the latest 100).
+link, pull request, description and comments (up to the latest 100, loaded
+when the card is opened). The pull request is the one from tako's branch for
+that issue (`tako/<number>-<title>`): open, merged or closed. When there is
+none (a delivery that failed, or work done by hand), press `c` to deliver it
+(see step 7 below).
 
 ### 3. Start a task
 
 Press `s` on a card in the `ready` column. tako asks which agent to use and
 then which model, starting with the default agent from `tako init`. Choosing
-**Default** lets the agent use its own default model. Cards in other columns,
+**Default** lets the agent use its own default model. **Opus + Haiku
+helpers** runs Opus with a Haiku subagent it is told to hand mechanical work
+to (searching, reading files, running tests), to spend fewer Opus tokens; how
+much it saves depends on how much the task delegates. Cards in other columns,
 and drafts (they have no repository yet), cannot be started.
 
-tako then opens the agent inside the issue's repository:
+tako then starts the agent in the background:
 
 1. **Finding the repository.** tako uses the folder it remembers for that
    repository, or the current folder when it is that repository. Otherwise it
@@ -125,15 +132,39 @@ tako then opens the agent inside the issue's repository:
 2. **Rules.** The first time, it creates `.tako/rules.md` in the repository:
    how you want the agent to work. Edit it freely and commit it.
 3. **The card moves** to your `in_progress` column. If GitHub refuses, tako
-   warns and opens the agent anyway.
-4. **The agent.** Claude Code opens with the chosen model and, as its first
-   message, the issue (description and comments) and how to work: create the
-   branch `tako/<number>-<title>` from your base branch, follow the rules,
-   reference the issue in commits, and do not push or open a pull request.
-5. **Back to the board.** When you close the agent, the board opens again.
+   warns and starts the agent anyway.
+4. **A worktree of its own.** tako creates the branch `tako/<number>-<title>`
+   from the latest base branch and checks it out in a new worktree inside the
+   repository, `.tako/worktrees/<number>-<title>` (hidden from `git status`
+   through `.git/info/exclude`). Your own checkout is never touched, and
+   several tasks of the same repository can run side by side.
+5. **The agent.** A Claude Code background session starts in the worktree,
+   with the chosen model. Its first message is the issue (description and
+   comments) and how to work: follow the repository's own instructions
+   (`CLAUDE.md`, `AGENTS.md`, `.claude/`...) and commit convention first, then
+   `.tako/rules.md`; commit the work; ask through its question tool when it
+   needs you; do not push or open a pull request. It runs in `auto`
+   permission mode: Claude Code approves safe actions itself and stops to ask
+   about risky ones.
+6. **Back to the board** right away. The card shows what the agent is doing
+   (`working`, `needs you`, `failed`), checked every 5 seconds. Press `a` on
+   the card to open the session and answer it; leave it with `Ctrl+Z` and it
+   keeps running.
+7. **Delivery.** When the session finishes, tako pushes the branch, opens a
+   pull request against your base branch (titled after the issue, with
+   `Closes #<number>`) and moves the card to your `delivery` column. Then it
+   stops the session and removes the worktree; the branch stays, it belongs
+   to the pull request. A worktree with uncommitted changes is kept and
+   reported. If the branch has no commits or the push fails, the card stays
+   and shows `delivery failed` with the reason: press `a`, ask the agent to
+   fix it, and tako delivers again when it finishes, or press `c` in the
+   card's details.
 
-> Not built yet: creating the branch in tako itself (the agent does it for
-> now) and delivering the work as a pull request.
+tako remembers its tasks in `tasks.json`, next to `config.json`, so closing
+tako loses nothing: the board catches up when it opens again.
+
+Claude Code only starts in the background in a folder you trusted: if it
+refuses, open `claude` once in the repository and accept the trust prompt.
 
 Only the first 100 cards of a project are shown.
 
