@@ -29,10 +29,10 @@ const SKIP = "__skip__";
 const MISSING = "__missing__";
 
 // Returns the process exit code. `configPath` is only used in messages.
-export async function runInitWizard(init: InitProject, configPath: string): Promise<number> {
-  p.intro("tako init");
+export async function runInitWizard(init: InitProject, configPath: string, fromBoard = false): Promise<number> {
+  p.intro(fromBoard ? "tako · add a project" : "tako init");
   try {
-    return await wizard(init, configPath);
+    return await wizard(init, configPath, fromBoard);
   } catch (error) {
     if (error instanceof Cancelled) {
       p.cancel("Init cancelled. Nothing was written.");
@@ -47,7 +47,7 @@ export async function runInitWizard(init: InitProject, configPath: string): Prom
   }
 }
 
-async function wizard(init: InitProject, configPath: string): Promise<number> {
+async function wizard(init: InitProject, configPath: string, fromBoard: boolean): Promise<number> {
   // 1. Load everything that does not depend on the user's answers.
   const context = await prepareWithAuthFix(init);
 
@@ -185,8 +185,17 @@ async function wizard(init: InitProject, configPath: string): Promise<number> {
 
   const count = outcome.config.projects.length;
   p.log.info(`Saved in ${configPath} (${count} project${count === 1 ? "" : "s"}).`);
-  p.outro(`Done. Run tako from any folder to open "${project.title}".`);
+  p.outro(fromBoard ? `Done. Opening "${project.title}".` : `Done. Run tako from any folder to open "${project.title}".`);
   return 0;
+}
+
+// From the board's project picker: the same questions, then back to the
+// board, which opens the last project added. A failure stays on screen until
+// Enter, since the board takes the whole terminal again.
+export async function runAddProject(init: InitProject, configPath: string): Promise<void> {
+  if ((await runInitWizard(init, configPath, true)) !== 0) {
+    await p.text({ message: "Press Enter to go back to the board" });
+  }
 }
 
 function invalidConfig(configPath: string, errors: { path: string; message: string }[]): number {
