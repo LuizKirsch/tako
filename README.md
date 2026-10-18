@@ -27,7 +27,11 @@ gh auth refresh --scopes project    # logged in, missing the project scope
 
 ## Install
 
-tako is not on npm yet. Install it from source:
+```sh
+npm install -g @luizkirsch/tako
+```
+
+Until the first release is on npm, install it from source:
 
 ```sh
 git clone https://github.com/LuizKirsch/gh-relay.git

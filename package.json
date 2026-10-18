@@ -1,17 +1,25 @@
 {
   "name": "@luizkirsch/tako",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "scripts": {
     "test": "vitest",
     "dev": "tsx src/cli.tsx",
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && vitest run && npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/LuizKirsch/gh-relay.git"
   },
-  "keywords": [],
+  "keywords": [
+    "github",
+    "github-projects",
+    "kanban",
+    "cli",
+    "ai",
+    "claude-code"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
@@ -42,5 +50,9 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
+  },
+  "description": "Pick a task from your GitHub Projects board and hand it to an AI coding agent",
+  "publishConfig": {
+    "access": "public"
   }
 }
