@@ -70,7 +70,8 @@ Your columns can have any names. tako stores the column IDs, so renaming a
 column later does not break the setup. Removing a mapped column does: the
 board shows a warning and asks you to run `tako init` again.
 
-Run `tako init` once per project. Adding a project that is already there asks
+Run `tako init` once per project, or add one from the board (`p`, then
+**+ Add a project**). Adding a project that is already there asks
 before replacing its setup; the other projects are kept.
 
 The setup is saved in `config.json`, in your user config directory:
@@ -92,7 +93,8 @@ tako
 tako opens the board of the last project you used, in full screen; when you
 quit, the terminal is back as it was. The board opens on the `ready` column.
 Columns sit side by side and scroll sideways when they do not fit the
-terminal. Press `p` to switch to another project.
+terminal. Press `p` to switch to another project or to add a new one: adding
+asks the same questions as `tako init`, then opens the new project's board.
 
 | Key | Board | Card details |
 |---|---|---|
@@ -102,7 +104,7 @@ terminal. Press `p` to switch to another project.
 | `s` | Start the selected card | Start this card |
 | `c` | | Create the pull request |
 | `a` | Open the card's agent session | |
-| `p` | Switch project | |
+| `p` | Switch or add a project | |
 | `Esc` | Quit | Back to the board |
 | `q` | Quit | Quit |
 
