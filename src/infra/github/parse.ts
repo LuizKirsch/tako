@@ -4,7 +4,7 @@
 // skipped instead of crashing, because an org can deny access to its
 // projects and GitHub then returns nulls inside otherwise valid data.
 
-import type { Card } from "../../domain/board.js";
+import type { Card, Comment } from "../../domain/board.js";
 import type { ColumnField } from "../../domain/roles.js";
 import type { ProjectSummary } from "../../ports/github.js";
 
@@ -71,9 +71,11 @@ export function parseCards(data: unknown, fieldId: string): Card[] {
     const repo = get(get(content, "repository"), "nameWithOwner");
     const state = get(content, "state");
     const body = get(content, "body");
+    const contentId = get(content, "id");
 
     cards.push({
       itemId: node.id,
+      ...(typeof contentId === "string" && { contentId }),
       optionId: typeof value?.optionId === "string" ? value.optionId : undefined,
       kind,
       title,
@@ -87,6 +89,16 @@ export function parseCards(data: unknown, fieldId: string): Card[] {
     });
   }
   return cards;
+}
+
+export function parseComments(data: unknown): Comment[] {
+  return nodes(get(get(get(data, "node"), "comments"), "nodes")).flatMap((c) => {
+    const { body, createdAt } = c;
+    if (typeof body !== "string" || typeof createdAt !== "string") return [];
+    // GitHub returns a null author for deleted accounts and shows them as "ghost".
+    const login = get(c.author, "login");
+    return [{ author: typeof login === "string" ? login : "ghost", body, createdAt }];
+  });
 }
 
 // `{ nodes: [{ name: "a" }, ...] }` -> ["a", ...]

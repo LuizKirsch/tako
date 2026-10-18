@@ -45,13 +45,13 @@ export const LIST_CARDS = /* GraphQL */ `
             content {
               __typename
               ... on Issue {
-                number title url state body
+                id number title url state body
                 repository { nameWithOwner }
                 labels(first: 20) { nodes { name } }
                 assignees(first: 10) { nodes { login } }
               }
               ... on PullRequest {
-                number title url state body
+                id number title url state body
                 repository { nameWithOwner }
                 labels(first: 20) { nodes { name } }
                 assignees(first: 10) { nodes { login } }
@@ -63,6 +63,22 @@ export const LIST_CARDS = /* GraphQL */ `
             }
           }
         }
+      }
+    }
+  }
+`;
+
+// Comments are fetched only when a card is opened: bringing them with the
+// board would multiply the response size by the number of cards.
+// `last: 100` keeps the newest ones, still in chronological order.
+export const LIST_COMMENTS = /* GraphQL */ `
+  query ListComments($id: ID!) {
+    node(id: $id) {
+      ... on Issue {
+        comments(last: 100) { nodes { author { login } body createdAt } }
+      }
+      ... on PullRequest {
+        comments(last: 100) { nodes { author { login } body createdAt } }
       }
     }
   }

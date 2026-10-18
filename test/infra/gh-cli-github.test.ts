@@ -39,6 +39,61 @@ describe("GhCliGitHub.listColumnFields", () => {
   });
 });
 
+describe("GhCliGitHub.listCards", () => {
+  // ponytail: hand-written shape; the full parser tests return with an anonymized fixture.
+  it("keeps the issue id so its comments can be fetched later", async () => {
+    const stdout = JSON.stringify({
+      data: {
+        node: {
+          items: {
+            nodes: [
+              {
+                id: "PVTI_1",
+                isArchived: false,
+                fieldValues: { nodes: [] },
+                content: { __typename: "Issue", id: "I_1", number: 1, title: "Issue", body: "" },
+              },
+              {
+                id: "PVTI_2",
+                isArchived: false,
+                fieldValues: { nodes: [] },
+                content: { __typename: "DraftIssue", title: "Idea", body: "" },
+              },
+            ],
+          },
+        },
+      },
+    });
+    const cards = await new GhCliGitHub(fakeRunner({ stdout })).listCards("PVT_1", "F_status");
+    expect(cards.map((c) => c.contentId)).toEqual(["I_1", undefined]);
+  });
+});
+
+describe("GhCliGitHub.listComments", () => {
+  it("reads author, body and date, and passes the issue id as a variable", async () => {
+    const stdout = JSON.stringify({
+      data: {
+        node: {
+          comments: {
+            nodes: [
+              { author: { login: "alice" }, body: "First", createdAt: "2026-01-02T10:00:00Z" },
+              { author: null, body: "From a deleted account", createdAt: "2026-01-03T10:00:00Z" },
+            ],
+          },
+        },
+      },
+    });
+    const runner = fakeRunner({ stdout });
+    const comments = await new GhCliGitHub(runner).listComments("I_1");
+
+    expect(comments).toEqual([
+      { author: "alice", body: "First", createdAt: "2026-01-02T10:00:00Z" },
+      { author: "ghost", body: "From a deleted account", createdAt: "2026-01-03T10:00:00Z" },
+    ]);
+    expect(runner.calls[0]).toContain("id=I_1");
+  });
+});
+
 describe("GhCliGitHub.fixAuth", () => {
   const withExit = (exitCode: number) => {
     const calls: string[][] = [];

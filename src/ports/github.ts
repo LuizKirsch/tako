@@ -4,7 +4,7 @@
 // Tests use an in-memory fake; production uses `gh api graphql` (infra/github).
 // It grows issue by issue: for now only what `init` and the board need.
 
-import type { Card } from "../domain/board.js";
+import type { Card, Comment } from "../domain/board.js";
 import type { OwnerType } from "../domain/config.js";
 import type { ColumnField } from "../domain/roles.js";
 
@@ -24,6 +24,8 @@ export interface GitHubPort {
   listColumnFields(projectId: string): Promise<ColumnField[]>;
   // Non-archived items of a project, each with its value in `fieldId`.
   listCards(projectId: string, fieldId: string): Promise<Card[]>;
+  // Comments of an issue or pull request (Card.contentId), oldest first.
+  listComments(contentId: string): Promise<Comment[]>;
   // Hands the terminal to gh's own auth flow (login or scope refresh).
   // gh-relay never sees the token. Resolves true when gh succeeded.
   fixAuth(kind: AuthFixKind): Promise<boolean>;

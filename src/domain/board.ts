@@ -7,6 +7,7 @@ import { ROLES } from "./roles.js";
 
 export interface Card {
   itemId: string; // the project item, used later to move the card
+  contentId?: string; // the issue or pull request itself; drafts have none
   optionId: string | undefined; // column option; undefined when the card has no status
   kind: "issue" | "pull_request" | "draft";
   title: string;
@@ -17,6 +18,13 @@ export interface Card {
   body: string; // markdown, "" when empty
   labels: string[];
   assignees: string[]; // logins
+}
+
+// A comment on an issue or pull request, oldest first.
+export interface Comment {
+  author: string; // login; "ghost" when the account was deleted
+  body: string; // markdown
+  createdAt: string; // ISO 8601
 }
 
 export interface BoardColumn {
