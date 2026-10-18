@@ -1,4 +1,4 @@
-// The `tako init` wizard.
+// The `tako init` wizard: adds a GitHub Project to tako. Runs from any folder.
 //
 // Built with @clack/prompts instead of Ink: init is a straight sequence of
 // questions, which is exactly what clack does, with far less code than
@@ -28,11 +28,11 @@ class Cancelled extends Error {}
 const SKIP = "__skip__";
 const MISSING = "__missing__";
 
-// Returns the process exit code.
-export async function runInitWizard(init: InitProject): Promise<number> {
+// Returns the process exit code. `configPath` is only used in messages.
+export async function runInitWizard(init: InitProject, configPath: string): Promise<number> {
   p.intro("tako init");
   try {
-    return await wizard(init);
+    return await wizard(init, configPath);
   } catch (error) {
     if (error instanceof Cancelled) {
       p.cancel("Init cancelled. Nothing was written.");
@@ -47,7 +47,7 @@ export async function runInitWizard(init: InitProject): Promise<number> {
   }
 }
 
-async function wizard(init: InitProject): Promise<number> {
+async function wizard(init: InitProject, configPath: string): Promise<number> {
   // 1. Load everything that does not depend on the user's answers.
   const context = await prepareWithAuthFix(init);
 
@@ -57,20 +57,13 @@ async function wizard(init: InitProject): Promise<number> {
     return 1;
   }
 
-  if (context.existingConfig.status === "ok") {
-    const replace = await ask(
-      p.confirm({
-        message: `This repo is already configured for "${context.existingConfig.config.project.title}". Replace the config?`,
-        initialValue: false,
-      }),
-    );
-    if (!replace) {
-      p.outro("Kept the existing config.");
-      return 0;
-    }
-  } else if (context.existingConfig.status === "invalid") {
-    p.log.warn("The existing .tako.json is invalid and will be replaced.");
+  // Never replace a config that cannot be read: it may hold other projects.
+  if (context.existingConfig.status === "invalid") {
+    return invalidConfig(configPath, context.existingConfig.errors);
   }
+  const added = new Set(
+    context.existingConfig.status === "ok" ? context.existingConfig.config.projects.map((p) => p.project.id) : [],
+  );
 
   // 2. Project.
   const openProjects = context.projects.filter((project) => !project.closed);
@@ -82,16 +75,32 @@ async function wizard(init: InitProject): Promise<number> {
 
   const projectId = await ask(
     p.select({
-      message: "Which project holds the tasks for this repository?",
+      message: "Which GitHub Project do you want to add?",
       options: openProjects.map((project) => ({
         value: project.id,
         label: project.title,
-        hint: `${project.owner} #${project.number}${project.ownerType === "organization" ? " (org)" : ""}`,
+        hint: [
+          `${project.owner} #${project.number}`,
+          project.ownerType === "organization" ? "org" : "",
+          added.has(project.id) ? "already added" : "",
+        ]
+          .filter(Boolean)
+          .join(", "),
       })),
       maxItems: 10,
     }),
   );
   const project = openProjects.find((candidate) => candidate.id === projectId)!;
+
+  if (added.has(project.id)) {
+    const replace = await ask(
+      p.confirm({ message: `"${project.title}" was already added. Set it up again?`, initialValue: false }),
+    );
+    if (!replace) {
+      p.outro("Kept the existing setup.");
+      return 0;
+    }
+  }
 
   // 3. The field whose options are the board columns.
   const fields = await withSpinner("Reading the project fields", "Fields loaded", () =>
@@ -164,25 +173,27 @@ async function wizard(init: InitProject): Promise<number> {
     init.finish({ project, field, roles, agentId, baseBranch: baseBranch.trim() }),
   );
   if (!outcome.ok) {
+    // The config was broken while the wizard ran.
+    if (outcome.kind === "invalid_config") return invalidConfig(configPath, outcome.errors);
     // Unreachable through this wizard (taken options are hidden), kept as a safety net.
     for (const error of outcome.errors) p.log.error(JSON.stringify(error));
     return 1;
   }
 
-  const summary = ROLES.map((role) => `${role.padEnd(12)} ${outcome.config.roles[role]?.name ?? "(none)"}`);
+  const summary = ROLES.map((role) => `${role.padEnd(12)} ${outcome.project.roles[role]?.name ?? "(none)"}`);
   p.note(summary.join("\n"), `${project.title} / ${field.name}`);
 
-  if (outcome.gitignoreUpdated) {
-    p.log.info("Added .tako.json to .gitignore: it identifies your project and stays on this machine.");
-  }
-  if (!outcome.rulesFileCreated) p.log.info(`Kept your existing ${outcome.config.rulesFile}.`);
-
-  p.outro(
-    outcome.rulesFileCreated
-      ? `Done. Commit ${outcome.config.rulesFile} (never .tako.json), then run tako.`
-      : "Done. Run tako to open the board.",
-  );
+  const count = outcome.config.projects.length;
+  p.log.info(`Saved in ${configPath} (${count} project${count === 1 ? "" : "s"}).`);
+  p.outro(`Done. Run tako from any folder to open "${project.title}".`);
   return 0;
+}
+
+function invalidConfig(configPath: string, errors: { path: string; message: string }[]): number {
+  p.log.error(`${configPath} is invalid, so it was left untouched:`);
+  for (const error of errors) p.log.message(`${error.path}: ${error.message}`);
+  p.outro("Fix the file, or delete it to start over, then run tako init again.");
+  return 1;
 }
 
 // When gh is logged out or lacks the project scope, offers to run gh's own

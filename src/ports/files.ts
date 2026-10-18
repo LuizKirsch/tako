@@ -1,9 +1,10 @@
-// Port: reading and writing files in the user's repository.
+// Port: reading and writing files under one root directory.
 //
-// Kept generic on purpose: the config store and the rules file both go
-// through it, and tests swap it for an in-memory map.
+// Kept generic on purpose: the tako config (rooted at the config directory)
+// and, later, files in a repository go through it, and tests swap it for an
+// in-memory map.
 
-export interface RepoFiles {
+export interface Files {
   // Returns undefined when the file does not exist.
   readText(path: string): Promise<string | undefined>;
   // Creates parent directories when needed.

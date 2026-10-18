@@ -1,51 +1,71 @@
 // Use case: open the board (`tako` with no command).
 //
-// Reads the config, fetches the project's fields and cards (and checks which
-// agents are installed) in parallel, and groups the cards into columns. When the board changed after init (drift),
-// the board still opens, read-only, and the UI explains what to fix.
+// Reads the config and picks the project: the requested one, else the last
+// opened, else the first. Then fetches its fields and cards (and checks which
+// agents are installed) in parallel, and groups the cards into columns.
+// When the board changed after the project was added (drift), the board still
+// opens, read-only, and the UI explains what to fix.
 
 import { buildBoard, type BoardColumn, type Card, type Comment } from "../domain/board.js";
-import { detectConfigDrift, type ConfigDrift, type ConfigParseError, type TakoConfig } from "../domain/config.js";
+import {
+  chooseProject,
+  detectConfigDrift,
+  type ConfigDrift,
+  type ConfigParseError,
+  type ProjectConfig,
+  type ProjectRef,
+} from "../domain/config.js";
 import type { AgentAdapter } from "../ports/agent.js";
-import type { RepoFiles } from "../ports/files.js";
+import type { Files } from "../ports/files.js";
 import type { GitHubPort } from "../ports/github.js";
 import { installedAgents } from "./agents.js";
-import { loadConfig } from "./config-file.js";
+import { loadConfig, saveConfig } from "./config-file.js";
 
 export interface BoardDeps {
   github: GitHubPort;
-  files: RepoFiles;
+  files: Files; // rooted at the tako config directory
   agents: readonly AgentAdapter[];
 }
 
 export type BoardResult =
-  | { status: "no_config" }
+  | { status: "no_config" } // no project added yet
   | { status: "invalid_config"; errors: ConfigParseError[] }
   | {
       status: "ok";
-      config: TakoConfig;
+      project: ProjectConfig; // the one on screen
+      projects: ProjectRef[]; // every project added, to switch between them
       columns: BoardColumn[];
       drift: ConfigDrift[];
       agents: AgentAdapter[]; // installed ones, offered when starting a task
     };
 
-export async function loadBoard(deps: BoardDeps): Promise<BoardResult> {
+export async function loadBoard(deps: BoardDeps, projectId?: string): Promise<BoardResult> {
   const loaded = await loadConfig(deps.files);
   if (loaded.status === "missing") return { status: "no_config" };
   if (loaded.status === "invalid") return { status: "invalid_config", errors: loaded.errors };
 
   const { config } = loaded;
+  // A project removed from the config falls back to the default choice.
+  const project = chooseProject(config, projectId) ?? chooseProject(config);
+  if (!project) return { status: "no_config" };
+
+  // Remember it, so the next `tako` opens the same project.
+  if (config.lastProjectId !== project.project.id) {
+    await saveConfig(deps.files, { ...config, lastProjectId: project.project.id });
+  }
+
   const [fields, cards, agents] = await Promise.all([
-    deps.github.listColumnFields(config.project.id),
-    deps.github.listCards(config.project.id, config.columnField.id),
+    deps.github.listColumnFields(project.project.id),
+    deps.github.listCards(project.project.id, project.columnField.id),
     installedAgents(deps.agents),
   ]);
 
-  const drift = detectConfigDrift(config, fields);
-  const field = fields.find((f) => f.id === config.columnField.id);
+  const drift = detectConfigDrift(project, fields);
+  const field = fields.find((f) => f.id === project.columnField.id);
   // Without the field there are no columns to group by.
-  const columns = field ? buildBoard(field, config.roles, cards) : [];
-  return { status: "ok", config, columns, drift, agents };
+  const columns = field ? buildBoard(field, project.roles, cards) : [];
+  const projects = config.projects.map((p) => p.project);
+  return { status: "ok", project, projects, columns, drift, agents };
 }
 
 // Comments of one card, loaded when the card is opened.

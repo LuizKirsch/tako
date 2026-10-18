@@ -3,10 +3,10 @@
 import type { Card, Comment } from "../../src/domain/board.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 import type { AgentAdapter } from "../../src/ports/agent.js";
-import type { RepoFiles } from "../../src/ports/files.js";
+import type { Files } from "../../src/ports/files.js";
 import type { GitHubPort, ProjectSummary } from "../../src/ports/github.js";
 
-export class MemoryFiles implements RepoFiles {
+export class MemoryFiles implements Files {
   readonly files = new Map<string, string>();
 
   constructor(initial: Record<string, string> = {}) {

@@ -1,7 +1,8 @@
-// The .tako.json config: shape, parsing and drift detection.
+// The tako config: every GitHub Project the user added, and the last one
+// opened. Shape, parsing, choosing a project and drift detection.
 //
-// The file identifies the user's project (IDs, titles), so it stays on the
-// machine: init adds it to .gitignore and it must never be committed.
+// The file lives in the user's config directory, never inside a repository:
+// it identifies the user's projects (IDs, titles) and must not be committed.
 // IDs are the source of truth; names are kept only for messages
 // ("column 'Pronto para IA' was removed").
 //
@@ -20,22 +21,8 @@ import {
   type RoleMappingError,
 } from "./roles.js";
 
-export const CONFIG_FILE = ".tako.json";
+export const CONFIG_FILE = "config.json"; // inside the tako config directory
 export const CONFIG_VERSION = 1;
-export const DEFAULT_RULES_FILE = ".tako/rules.md";
-
-// Returns the .gitignore content with CONFIG_FILE added, or undefined when it
-// is already listed. Keeps the file's line endings.
-// ponytail: exact entries only; a wildcard that happens to match is not detected.
-export function ignoreConfigFile(gitignore: string | undefined): string | undefined {
-  const current = gitignore ?? "";
-  const lines = current.split(/\r?\n/).map((line) => line.trim());
-  if (lines.includes(CONFIG_FILE) || lines.includes(`/${CONFIG_FILE}`)) return undefined;
-
-  const eol = current.includes("\r\n") ? "\r\n" : "\n";
-  const separator = current === "" || current.endsWith("\n") ? "" : eol;
-  return `${current}${separator}${CONFIG_FILE}${eol}`;
-}
 
 export type OwnerType = "user" | "organization";
 
@@ -47,48 +34,68 @@ export interface ProjectRef {
   ownerType: OwnerType;
 }
 
-export interface TakoConfig {
-  version: typeof CONFIG_VERSION;
+// How tako reads one project: which field holds the columns and what each
+// column means.
+export interface ProjectConfig {
   project: ProjectRef;
   columnField: { id: string; name: string };
   roles: RoleMapping;
   agent: { default: string };
   baseBranch: string;
-  rulesFile: string;
+}
+
+export interface TakoConfig {
+  version: typeof CONFIG_VERSION;
+  lastProjectId?: string; // opened by default
+  projects: ProjectConfig[];
 }
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; errors: E[] };
 
 // ---------------------------------------------------------------------------
-// Creating a config (used by init)
+// Adding and choosing projects
 // ---------------------------------------------------------------------------
 
-export interface ConfigInput {
+export interface ProjectInput {
   project: ProjectRef;
   field: ColumnField;
   roles: RoleMapping;
   agentId: string;
   baseBranch: string;
-  rulesFile?: string;
 }
 
-// Builds a config only if the role mapping is valid for the chosen field.
-export function createConfig(input: ConfigInput): Result<TakoConfig, RoleMappingError> {
+// Builds a project config only if the role mapping is valid for the field.
+export function createProjectConfig(input: ProjectInput): Result<ProjectConfig, RoleMappingError> {
   const errors = validateRoleMapping(input.field, input.roles);
   if (errors.length > 0) return { ok: false, errors };
 
   return {
     ok: true,
     value: {
-      version: CONFIG_VERSION,
       project: input.project,
       columnField: { id: input.field.id, name: input.field.name },
       roles: input.roles,
       agent: { default: input.agentId },
       baseBranch: input.baseBranch,
-      rulesFile: input.rulesFile ?? DEFAULT_RULES_FILE,
     },
   };
+}
+
+// Adds a project, or replaces it when it was already added (same ID, same
+// position), and makes it the one opened next.
+export function addProject(config: TakoConfig | undefined, project: ProjectConfig): TakoConfig {
+  const projects = config?.projects ?? [];
+  const index = projects.findIndex((p) => p.project.id === project.project.id);
+  const next = index === -1 ? [...projects, project] : projects.map((p, i) => (i === index ? project : p));
+  return { version: CONFIG_VERSION, lastProjectId: project.project.id, projects: next };
+}
+
+// The project to open: the requested one, else the last opened, else the
+// first. Undefined when there are no projects or the requested one is unknown.
+export function chooseProject(config: TakoConfig, projectId?: string): ProjectConfig | undefined {
+  const find = (id: string | undefined) => config.projects.find((p) => p.project.id === id);
+  if (projectId !== undefined) return find(projectId);
+  return find(config.lastProjectId) ?? config.projects[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -101,78 +108,116 @@ export interface ConfigParseError {
   message: string;
 }
 
+type Fail = (path: string, message: string) => void;
+
 export function parseConfig(raw: unknown): Result<TakoConfig, ConfigParseError> {
   const errors: ConfigParseError[] = [];
-  const fail = (path: string, message: string) => errors.push({ path, message });
+  const fail: Fail = (path, message) => errors.push({ path, message });
 
   if (!isObject(raw)) return { ok: false, errors: [{ path: "$", message: "must be a JSON object" }] };
 
   if (raw.version !== CONFIG_VERSION) {
     fail("version", `unsupported version ${JSON.stringify(raw.version)}, expected ${CONFIG_VERSION}`);
   }
+  if (raw.lastProjectId !== undefined && typeof raw.lastProjectId !== "string") {
+    fail("lastProjectId", "must be a string");
+  }
+
+  const projects: ProjectConfig[] = [];
+  if (!Array.isArray(raw.projects)) {
+    fail("projects", "must be a list");
+  } else {
+    raw.projects.forEach((item: unknown, i) => {
+      const project = parseProjectConfig(item, `projects[${i}]`, fail);
+      if (project) projects.push(project);
+    });
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+  const lastProjectId = raw.lastProjectId as string | undefined;
+  return { ok: true, value: { version: CONFIG_VERSION, ...(lastProjectId && { lastProjectId }), projects } };
+}
+
+// Returns the project config, or undefined after reporting what is wrong.
+function parseProjectConfig(raw: unknown, at: string, fail: Fail): ProjectConfig | undefined {
+  if (!isObject(raw)) {
+    fail(at, "must be an object");
+    return undefined;
+  }
+  let valid = true;
+  const check: Fail = (path, message) => {
+    valid = false;
+    fail(`${at}.${path}`, message);
+  };
 
   const project = raw.project;
   if (!isObject(project)) {
-    fail("project", "must be an object");
+    check("project", "must be an object");
   } else {
-    requireString(project, "id", "project", fail);
-    requireString(project, "title", "project", fail);
-    requireString(project, "owner", "project", fail);
-    if (typeof project.number !== "number") fail("project.number", "must be a number");
+    requireString(project, "id", "project", check);
+    requireString(project, "title", "project", check);
+    requireString(project, "owner", "project", check);
+    if (typeof project.number !== "number") check("project.number", "must be a number");
     if (project.ownerType !== "user" && project.ownerType !== "organization") {
-      fail("project.ownerType", 'must be "user" or "organization"');
+      check("project.ownerType", 'must be "user" or "organization"');
     }
   }
 
   const columnField = raw.columnField;
   if (!isObject(columnField)) {
-    fail("columnField", "must be an object");
+    check("columnField", "must be an object");
   } else {
-    requireString(columnField, "id", "columnField", fail);
-    requireString(columnField, "name", "columnField", fail);
+    requireString(columnField, "id", "columnField", check);
+    requireString(columnField, "name", "columnField", check);
   }
 
   const roles = raw.roles;
   if (!isObject(roles)) {
-    fail("roles", "must be an object");
+    check("roles", "must be an object");
   } else {
     for (const role of ROLES) {
       const binding = roles[role];
       // Optional roles may be absent or null.
       if (binding === undefined || binding === null) {
-        if (REQUIRED_ROLES.includes(role)) fail(`roles.${role}`, "is required");
+        if (REQUIRED_ROLES.includes(role)) check(`roles.${role}`, "is required");
         continue;
       }
       if (!isObject(binding)) {
-        fail(`roles.${role}`, "must be an object");
+        check(`roles.${role}`, "must be an object");
         continue;
       }
-      requireString(binding, "optionId", `roles.${role}`, fail);
-      requireString(binding, "name", `roles.${role}`, fail);
+      requireString(binding, "optionId", `roles.${role}`, check);
+      requireString(binding, "name", `roles.${role}`, check);
     }
   }
 
   const agent = raw.agent;
-  if (!isObject(agent)) fail("agent", "must be an object");
-  else requireString(agent, "default", "agent", fail);
+  if (!isObject(agent)) check("agent", "must be an object");
+  else requireString(agent, "default", "agent", check);
 
-  requireString(raw, "baseBranch", "", fail);
-  requireString(raw, "rulesFile", "", fail);
+  requireString(raw, "baseBranch", "", check);
 
-  if (errors.length > 0) return { ok: false, errors };
+  if (!valid) return undefined;
 
-  // Safe after the checks above; normalize optional roles (null -> absent).
-  const config = raw as unknown as TakoConfig;
+  // Safe after the checks above; keep only known keys and normalize optional
+  // roles (null -> absent).
+  const config = raw as unknown as ProjectConfig;
   const normalizedRoles: RoleMapping = {};
   for (const role of ROLES) {
     const binding = config.roles[role];
     if (binding) normalizedRoles[role] = { optionId: binding.optionId, name: binding.name };
   }
-  return { ok: true, value: { ...config, roles: normalizedRoles } };
+  return {
+    project: config.project,
+    columnField: config.columnField,
+    roles: normalizedRoles,
+    agent: config.agent,
+    baseBranch: config.baseBranch,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Drift: the board changed after init (column renamed or removed)
+// Drift: the board changed after the project was added (column removed)
 // ---------------------------------------------------------------------------
 
 export type ConfigDrift =
@@ -182,7 +227,7 @@ export type ConfigDrift =
 // A renamed column keeps its option ID, so renaming alone is NOT drift:
 // only a removed option (or a removed field) breaks the config.
 // The caller opens the board read-only when this returns anything.
-export function detectConfigDrift(config: TakoConfig, fields: ColumnField[]): ConfigDrift[] {
+export function detectConfigDrift(config: ProjectConfig, fields: ColumnField[]): ConfigDrift[] {
   const field = fields.find((f) => f.id === config.columnField.id);
   if (!field) return [{ kind: "field_missing", fieldName: config.columnField.name }];
 
@@ -205,12 +250,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requireString(
-  obj: Record<string, unknown>,
-  key: string,
-  parent: string,
-  fail: (path: string, message: string) => void,
-): void {
+function requireString(obj: Record<string, unknown>, key: string, parent: string, fail: Fail): void {
   const value = obj[key];
   if (typeof value !== "string" || value.trim() === "") {
     fail(parent ? `${parent}.${key}` : key, "must be a non-empty string");

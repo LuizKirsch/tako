@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadBoard, loadComments } from "../../src/app/load-board.js";
 import type { Card } from "../../src/domain/board.js";
-import { CONFIG_FILE, type TakoConfig } from "../../src/domain/config.js";
+import { CONFIG_FILE, type ProjectConfig, type TakoConfig } from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
 import { FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
@@ -15,9 +15,8 @@ const status: ColumnField = {
   ],
 };
 
-const config: TakoConfig = {
-  version: 1,
-  project: { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" },
+const project = (id: string, title: string): ProjectConfig => ({
+  project: { id, number: 2, title, owner: "LuizKirsch", ownerType: "user" },
   columnField: { id: "F_status", name: "Status" },
   roles: {
     ready: { optionId: "o-ready", name: "Pronto para IA" },
@@ -26,8 +25,9 @@ const config: TakoConfig = {
   },
   agent: { default: "claude-code" },
   baseBranch: "main",
-  rulesFile: ".tako/rules.md",
-};
+});
+
+const config: TakoConfig = { version: 1, lastProjectId: "PVT_1", projects: [project("PVT_1", "Portfolio")] };
 
 const cards: Card[] = [
   {
@@ -43,12 +43,56 @@ const cards: Card[] = [
   },
 ];
 
-const configured = () => new MemoryFiles({ [CONFIG_FILE]: JSON.stringify(config) });
+const configured = (value: TakoConfig = config) => new MemoryFiles({ [CONFIG_FILE]: JSON.stringify(value) });
 
 describe("loadBoard", () => {
-  it("asks for init when there is no config", async () => {
-    const result = await loadBoard({ github: new FakeGitHub([], {}), files: new MemoryFiles(), agents: [] });
-    expect(result).toEqual({ status: "no_config" });
+  it("asks for init when there is no config or no project in it", async () => {
+    const github = new FakeGitHub([], {});
+    await expect(loadBoard({ github, files: new MemoryFiles(), agents: [] })).resolves.toEqual({ status: "no_config" });
+    const empty = configured({ version: 1, projects: [] });
+    await expect(loadBoard({ github, files: empty, agents: [] })).resolves.toEqual({ status: "no_config" });
+  });
+
+  describe("with several projects", () => {
+    const two: TakoConfig = {
+      version: 1,
+      lastProjectId: "PVT_2",
+      projects: [project("PVT_1", "Portfolio"), project("PVT_2", "Side project")],
+    };
+    const github = new FakeGitHub([], { PVT_1: [status], PVT_2: [status] }, { PVT_1: cards, PVT_2: [] });
+    const lastOpened = (files: MemoryFiles) => JSON.parse(files.files.get(CONFIG_FILE) ?? "{}").lastProjectId;
+
+    it("opens the last project used and lists all of them", async () => {
+      const result = await loadBoard({ github, files: configured(two), agents: [] });
+
+      if (result.status !== "ok") throw new Error(result.status);
+      expect(result.project.project.title).toBe("Side project");
+      expect(result.projects.map((p) => p.title)).toEqual(["Portfolio", "Side project"]);
+    });
+
+    it("opens the requested project and remembers it for next time", async () => {
+      const files = configured(two);
+      const result = await loadBoard({ github, files, agents: [] }, "PVT_1");
+
+      if (result.status !== "ok") throw new Error(result.status);
+      expect(result.project.project.id).toBe("PVT_1");
+      expect(result.columns[0]?.cards).toHaveLength(1);
+      expect(lastOpened(files)).toBe("PVT_1");
+    });
+
+    it("falls back to the default when the requested project is gone", async () => {
+      const result = await loadBoard({ github, files: configured(two), agents: [] }, "PVT_gone");
+
+      if (result.status !== "ok") throw new Error(result.status);
+      expect(result.project.project.id).toBe("PVT_2");
+    });
+
+    it("does not rewrite the config when the last project is opened again", async () => {
+      const files = configured(two);
+      const before = files.files.get(CONFIG_FILE);
+      await loadBoard({ github, files, agents: [] });
+      expect(files.files.get(CONFIG_FILE)).toBe(before);
+    });
   });
 
   it("reports an invalid config", async () => {

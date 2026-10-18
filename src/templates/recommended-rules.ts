@@ -1,4 +1,7 @@
-// The user layer of rules, generated once by `init` into .tako/rules.md.
+// The user layer of rules, generated once into a repository's .tako/rules.md.
+//
+// ponytail: not wired right now. init no longer runs inside a repository, so
+// the file will be created the first time a task starts in a repository.
 //
 // It is a starting point the user owns and edits freely. The workflow
 // contract (no push, no PR, commit with #N...) is NOT here: tako injects

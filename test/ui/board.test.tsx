@@ -49,10 +49,15 @@ const agents = [
     ],
   },
 ];
+const projects = [
+  { id: "PVT_1", number: 2, title: "Portfolio", owner: "LuizKirsch", ownerType: "user" as const },
+  { id: "PVT_2", number: 5, title: "Side project", owner: "acme", ownerType: "organization" as const },
+];
+const projectProps = { projects, currentProjectId: "PVT_1", onSwitchProject: () => {} };
 
 describe("Board", () => {
   it("shows the columns side by side, starting on the ready column", () => {
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     const frame = lastFrame() ?? "";
 
     // Both headers on the same line: columns are side by side.
@@ -64,7 +69,7 @@ describe("Board", () => {
   });
 
   it("moves between cards and columns with the arrow keys", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
 
     stdin.write(DOWN);
@@ -83,7 +88,7 @@ describe("Board", () => {
 
   it("scrolls sideways when the columns do not fit", async () => {
     const many = ["A", "B", "C", "D", "E", "F"].map((name) => column(`Col ${name}`));
-    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={many} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
 
     expect(lastFrame()).toContain("3 more ▶");
@@ -97,7 +102,7 @@ describe("Board", () => {
   });
 
   it("opens the selected card with Enter and goes back with Esc", async () => {
-    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame, stdin } = render(<Board title="Portfolio / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
 
     stdin.write(DOWN);
@@ -118,7 +123,7 @@ describe("Board", () => {
   });
 
   it("does nothing on Enter in an empty column", async () => {
-    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame, stdin } = render(<Board title="Board" columns={[column("Empty", [], "ready")]} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     await tick();
     stdin.write(ENTER);
     await tick();
@@ -127,7 +132,7 @@ describe("Board", () => {
 
   it("shows drift warnings", () => {
     const drift = [{ kind: "field_missing" as const, fieldName: "Status" }];
-    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} agents={agents} defaultAgentId="claude-code" />);
+    const { lastFrame } = render(<Board title="Portfolio / Status" columns={[]} drift={drift} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} />);
     expect(lastFrame()).toContain('The "Status" field no longer exists');
   });
 });
@@ -185,6 +190,7 @@ describe("Starting a task", () => {
         loadComments={noComments}
         agents={agentList}
         defaultAgentId="claude-code"
+        {...projectProps}
       />,
     );
 
@@ -250,5 +256,62 @@ describe("Starting a task", () => {
 
     stdin.write("s");
     await vi.waitFor(() => expect(lastFrame()).toContain("No supported AI agent is installed."));
+  });
+});
+
+describe("Switching projects", () => {
+  const board = (onSwitchProject: (id: string) => void) =>
+    render(
+      <Board
+        title="Portfolio / Status"
+        columns={columns}
+        drift={[]}
+        loadComments={noComments}
+        agents={agents}
+        defaultAgentId="claude-code"
+        {...projectProps}
+        onSwitchProject={onSwitchProject}
+      />,
+    );
+
+  it("lists every project with `p`, marking the one on screen", async () => {
+    const { lastFrame, stdin } = board(() => {});
+    await tick();
+
+    stdin.write("p");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
+    expect(lastFrame()).toContain("› Portfolio (LuizKirsch #2, open now)");
+    expect(lastFrame()).toContain("Side project (acme #5)");
+    expect(lastFrame()).toContain("run `tako init`");
+  });
+
+  it("switches to the chosen project", async () => {
+    const onSwitch = vi.fn();
+    const { lastFrame, stdin } = board(onSwitch);
+    await tick();
+
+    stdin.write("p");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
+    stdin.write(DOWN);
+    await vi.waitFor(() => expect(lastFrame()).toContain("› Side project"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(onSwitch).toHaveBeenCalledWith("PVT_2"));
+  });
+
+  it("goes back to the board when the current project is chosen or on Esc", async () => {
+    const onSwitch = vi.fn();
+    const { lastFrame, stdin } = board(onSwitch);
+    await tick();
+
+    stdin.write("p");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
+    stdin.write(ENTER);
+    await vi.waitFor(() => expect(lastFrame()).toContain("To do"));
+
+    stdin.write("p");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Projects"));
+    stdin.write(ESC);
+    await vi.waitFor(() => expect(lastFrame()).toContain("To do"));
+    expect(onSwitch).not.toHaveBeenCalled();
   });
 });

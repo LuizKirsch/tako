@@ -6,12 +6,15 @@
 // sideways to keep the selected column visible.
 // Enter opens the card's details (TaskView). `s` starts a ready card: it asks
 // for the agent and model (StartPicker); launching the agent comes next.
+// `p` switches to another project (ProjectPicker).
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
 import { canStart, type BoardColumn, type Card, type Comment } from "../../domain/board.js";
 import type { ConfigDrift } from "../../domain/config.js";
+import type { ProjectRef } from "../../domain/config.js";
 import { ROLE_DESCRIPTIONS } from "../../domain/roles.js";
+import { ProjectPicker } from "./ProjectPicker.js";
 import { StartPicker, type AgentChoice, type StartChoice } from "./StartPicker.js";
 import { TaskView } from "./TaskView.js";
 
@@ -27,9 +30,13 @@ export interface BoardProps {
   loadComments: (card: Card) => Promise<Comment[]>;
   agents: readonly AgentChoice[]; // installed agents
   defaultAgentId: string; // preselected in the start picker
+  projects: readonly ProjectRef[]; // every project added to tako
+  currentProjectId: string;
+  onSwitchProject: (projectId: string) => void;
 }
 
-export function Board({ title, columns, drift, loadComments, agents, defaultAgentId }: BoardProps) {
+export function Board(props: BoardProps) {
+  const { title, columns, drift, loadComments, agents, defaultAgentId } = props;
   const { exit } = useApp();
   // Without a keyboard (piped or non-interactive terminal) print once and quit.
   const { isRawModeSupported } = useStdin();
@@ -42,6 +49,7 @@ export function Board({ title, columns, drift, loadComments, agents, defaultAgen
   const [row, setRow] = useState(0);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [choosingProject, setChoosingProject] = useState(false);
   const [notice, setNotice] = useState<string>();
   const column = columns[col];
   const cards = column?.cards ?? [];
@@ -78,13 +86,14 @@ export function Board({ title, columns, drift, loadComments, agents, defaultAgen
       setNotice(undefined);
       if (input === "q" || key.escape) exit();
       if (input === "s") requestStart();
+      if (input === "p") setChoosingProject(true);
       if (key.return && selected) setOpen(true);
       if (key.leftArrow) setCol((c) => Math.max(0, c - 1));
       if (key.rightArrow) setCol((c) => Math.min(columns.length - 1, c + 1));
       if (key.upArrow) setRow(Math.max(0, selectedRow - 1));
       if (key.downArrow) setRow(Math.min(Math.max(0, cards.length - 1), selectedRow + 1));
     },
-    { isActive: isRawModeSupported && !open && !starting },
+    { isActive: isRawModeSupported && !open && !starting && !choosingProject },
   );
 
   const size = useWindowSize();
@@ -95,6 +104,18 @@ export function Board({ title, columns, drift, loadComments, agents, defaultAgen
   // Keep the selected column roughly centered among the visible ones.
   const first = Math.min(Math.max(0, col - Math.floor(fit / 2)), columns.length - fit);
   const shown = columns.slice(first, first + fit);
+
+  if (choosingProject) {
+    return (
+      <ProjectPicker
+        projects={props.projects}
+        currentId={props.currentProjectId}
+        onConfirm={props.onSwitchProject}
+        onCancel={() => setChoosingProject(false)}
+        isActive={isRawModeSupported}
+      />
+    );
+  }
 
   if (starting && selected) {
     return (
@@ -160,7 +181,7 @@ export function Board({ title, columns, drift, loadComments, agents, defaultAgen
           {selected?.url ?? " "}
         </Text>
       )}
-      <Text dimColor>←/→ column · ↑/↓ card · Enter open · s start · q quit</Text>
+      <Text dimColor>←/→ column · ↑/↓ card · Enter open · s start · p projects · q quit</Text>
     </Box>
   );
 }
