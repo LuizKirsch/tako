@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LuizKirsch/gh-relay.git"
+    "url": "git+https://github.com/LuizKirsch/tako.git"
   },
   "keywords": [
     "github",
@@ -24,11 +24,11 @@
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/LuizKirsch/gh-relay/issues"
+    "url": "https://github.com/LuizKirsch/tako/issues"
   },
-  "homepage": "https://github.com/LuizKirsch/gh-relay#readme",
+  "homepage": "https://github.com/LuizKirsch/tako#readme",
   "bin": {
-    "tako": "./dist/cli.js"
+    "tako": "dist/cli.js"
   },
   "files": [
     "dist"

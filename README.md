@@ -33,8 +33,8 @@ npm install -g @luizkirsch/tako
 Until the first release is on npm, install it from source:
 
 ```sh
-git clone https://github.com/LuizKirsch/gh-relay.git
-cd gh-relay
+git clone https://github.com/LuizKirsch/tako.git
+cd tako
 npm install
 npm run build
 npm link        # makes the `tako` command available everywhere
