@@ -19,15 +19,20 @@
 // the same way every few seconds. Once the agent works again (the user
 // attached and asked for a fix), the error is cleared and the next finish
 // delivers again. Every step is safe to run twice.
+//
+// A project workflow can move the card right after tako does (e.g.
+// "Pull request linked to issue", which reacts to the new pull request), so
+// the card is checked for a few seconds after the move and moved back.
 
 import type { Card } from "../domain/board.js";
 import { repoPath, type ProjectConfig } from "../domain/config.js";
 import { join } from "node:path";
+import { setTimeout } from "node:timers/promises";
 import { branchName, worktreeDir, type RunningTask, type TaskStatus } from "../domain/task.js";
 import type { AgentAdapter, AgentSession } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
 import type { GitPort } from "../ports/git.js";
-import type { GitHubPort, PullRequestInfo } from "../ports/github.js";
+import type { CardMove, GitHubPort, PullRequestInfo } from "../ports/github.js";
 import { loadConfig } from "./config-file.js";
 import { loadTasks, saveTasks } from "./task-store.js";
 
@@ -36,6 +41,7 @@ export interface TrackDeps {
   github: GitHubPort;
   git: GitPort;
   agents: readonly AgentAdapter[];
+  sleep?: (ms: number) => Promise<void>; // tests skip the waits
 }
 
 export interface SyncResult {
@@ -117,7 +123,7 @@ async function deliver(deps: TrackDeps, task: RunningTask, project: ProjectConfi
 
   const delivery = project.roles.delivery;
   if (delivery) {
-    await deps.github.moveCard({
+    await keepInColumn(deps, {
       projectId: task.projectId,
       itemId: task.itemId,
       fieldId: project.columnField.id,
@@ -125,6 +131,23 @@ async function deliver(deps: TrackDeps, task: RunningTask, project: ProjectConfi
     });
   }
   return { url, leftover: await cleanUp(deps, task) };
+}
+
+// GitHub runs project workflows about a second after the pull request opens
+// (seen on a real board). ponytail: a fixed ~10 s window and a full
+// listCards per check; read the single item if boards get big.
+const RECHECKS = 5;
+const RECHECK_EVERY_MS = 2000;
+
+async function keepInColumn(deps: TrackDeps, move: CardMove): Promise<void> {
+  const sleep = deps.sleep ?? ((ms: number) => setTimeout(ms));
+  await deps.github.moveCard(move);
+  for (let i = 0; i < RECHECKS; i++) {
+    await sleep(RECHECK_EVERY_MS);
+    const card = (await deps.github.listCards(move.projectId, move.fieldId)).find((c) => c.itemId === move.itemId);
+    // A card that is gone (archived, deleted) has nowhere to go back to.
+    if (card && card.optionId !== move.optionId) await deps.github.moveCard(move);
+  }
 }
 
 // Best effort: the work is already on GitHub. The session is stopped first,

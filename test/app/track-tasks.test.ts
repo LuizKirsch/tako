@@ -40,7 +40,7 @@ function setup(tasks: RunningTask[]) {
   const github = new FakeGitHub([], {});
   const git = new FakeGit();
   const agent = fakeAgent("claude-code", true);
-  const deps = { files, github, git, agents: [agent] };
+  const deps = { files, github, git, agents: [agent], sleep: async () => {} };
   const followed = (): RunningTask[] => JSON.parse(files.files.get(TASKS_FILE) ?? "[]");
   return { deps, github, git, agent, followed };
 }
@@ -82,6 +82,27 @@ describe("syncTasks", () => {
     ]);
     expect(github.moves).toEqual([{ projectId: "PVT_1", itemId: "I1", fieldId: "F1", optionId: "o-review" }]);
     expect(followed().map((t) => t.itemId)).toEqual(["I2"]);
+  });
+
+  it("moves the card back when a project workflow moves it after delivery", async () => {
+    const { deps, agent, github, git } = setup([task("I1", "a")]);
+    agent.sessionList.push({ id: "a", state: "done" });
+    git.ahead["tako/I1"] = 1;
+    // Like "Pull request linked to issue": the first check finds it moved away.
+    let column = "o-doing";
+    let checks = 0;
+    github.moveCard = async (move) => {
+      github.moves.push(move);
+      column = move.optionId;
+    };
+    github.listCards = async () => {
+      if (checks++ === 0) column = "o-doing";
+      return [{ itemId: "I1", optionId: column } as Card];
+    };
+
+    await syncTasks(deps);
+    expect(github.moves.map((m) => m.optionId)).toEqual(["o-review", "o-review"]);
+    expect(column).toBe("o-review");
   });
 
   it("keeps a worktree git refuses to remove and says so", async () => {
