@@ -1,6 +1,6 @@
 {
   "name": "@luizkirsch/tako",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "test": "vitest",
     "dev": "tsx src/cli.tsx",
