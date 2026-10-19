@@ -30,7 +30,7 @@ gh auth refresh --scopes project    # logged in, missing the project scope
 npm install -g @luizkirsch/tako
 ```
 
-Until the first release is on npm, install it from source:
+Or install it from source:
 
 ```sh
 git clone https://github.com/LuizKirsch/tako.git
