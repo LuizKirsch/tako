@@ -64,7 +64,28 @@ export async function runBoard(options: RunBoardOptions): Promise<number> {
       await options.addProject();
     } else {
       console.log("Opening the agent. Leave it with Ctrl+Z to come back to the board; it keeps running.");
-      await options.attach(session.itemId);
+      await withStdinReleased(() => options.attach(session.itemId));
+    }
+  }
+}
+
+// Ink's unmount leaves stdin's handle reading (stream pause() does not stop
+// it either), so this process keeps consuming keys meant for the child; on
+// Windows the child gets none. ponytail: uses the internal `_handle` of
+// node's net.Socket (checked on Node 24); restores the exact prior state.
+async function withStdinReleased(run: () => Promise<void>): Promise<void> {
+  const handle = (process.stdin as { _handle?: { reading?: boolean; readStop?: () => void; readStart?: () => void } })._handle;
+  const wasReading = handle?.reading === true;
+  if (wasReading) {
+    handle.reading = false;
+    handle.readStop?.();
+  }
+  try {
+    await run();
+  } finally {
+    if (wasReading) {
+      handle.reading = true;
+      handle.readStart?.();
     }
   }
 }
