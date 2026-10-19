@@ -149,7 +149,8 @@ tako then starts the agent in the background:
    permission mode: Claude Code approves safe actions itself and stops to ask
    about risky ones.
 6. **Back to the board** right away. The card shows what the agent is doing
-   (`working`, `needs you`, `failed`), checked every 5 seconds. Press `a` on
+   (`working`, `needs you`, `failed`). The board refreshes every 10 seconds
+   (agents and GitHub), or right away with `r`. Press `a` on
    the card to open the session and answer it; leave it with `Ctrl+Z` and it
    keeps running.
 7. **Delivery.** When the session finishes, tako pushes the branch, opens a
