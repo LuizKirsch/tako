@@ -9,9 +9,12 @@
 // Switching projects reloads in place. Starting a task leaves the board,
 // runs `start` on the normal screen (it may ask for the repository's folder),
 // and opens the board again: the agent works in the background meanwhile.
-// While the board is open, the background tasks are checked every few
-// seconds; a finished one is delivered as a pull request, and the board reloads. `a` leaves
-// the board to open a card's agent session, to answer it.
+// While the board is open it refreshes every few seconds, and on `r`: the
+// background tasks are synced first (a finished one is delivered as a pull
+// request, with its checks), then the board is reloaded from GitHub. A
+// refresh runs whatever syncTasks does for every agent, so a new agent or
+// check only needs to be added there. `a` leaves the board to open a card's
+// agent session, to answer it.
 
 import { Box, render, Text, type Instance } from "ink";
 import type { ReactNode } from "react";
@@ -44,7 +47,7 @@ type Session =
   | { kind: "attach"; itemId: string; projectId: string }
   | { kind: "add_project" };
 
-const SYNC_EVERY_MS = 5000;
+const REFRESH_EVERY_MS = 10_000;
 
 // Returns the process exit code.
 export async function runBoard(options: RunBoardOptions): Promise<number> {
@@ -102,9 +105,18 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
   // A failed check (agent or GitHub unreachable) just waits for the next one.
   const sync = () => options.sync().catch((): SyncResult => ({ states: {}, delivered: [] }));
 
-  // `quiet` reloads behind the current board, keeping the selection.
+  // `quiet` reloads behind the current board, keeping the selection; when it
+  // fails (GitHub unreachable for a moment), the current board stays.
   const open = async (projectId?: string, quiet = false): Promise<void> => {
     busy = true;
+    try {
+      await load(projectId, quiet);
+    } finally {
+      busy = false;
+    }
+  };
+
+  const load = async (projectId: string | undefined, quiet: boolean): Promise<void> => {
     if (!quiet) {
       draw = undefined;
       app.rerender(<Text dimColor>Loading the board…</Text>);
@@ -116,6 +128,7 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
       states = (await sync()).states;
       result = await options.load(projectId);
     } catch (error) {
+      if (quiet && draw) return;
       if (!(error instanceof GitHubError)) {
         app.unmount();
         throw error;
@@ -165,11 +178,12 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
           create: async (card) => {
             const delivered = await options.deliver(card, project);
             // The card moved to delivery.
-            void open(project.project.id, true);
+            void refresh();
             return delivered;
           },
         }}
           onSwitchProject={(id) => void open(id)}
+          onRefresh={refresh}
         onAddProject={() => {
           session = { kind: "add_project" };
           app.unmount();
@@ -187,17 +201,13 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
         />,
       );
     draw(states);
-    busy = false;
   };
 
-  const timer = setInterval(async () => {
-    if (busy || !draw) return;
-    busy = true;
-    const { states, delivered } = await sync();
-    busy = false;
-    if (delivered.length > 0) await open(currentProjectId, true);
-    else draw?.(states);
-  }, SYNC_EVERY_MS);
+  // A refresh already running covers this one.
+  const refresh = async (): Promise<void> => {
+    if (!busy && draw) await open(currentProjectId, true);
+  };
+  const timer = setInterval(() => void refresh(), REFRESH_EVERY_MS);
 
   try {
     await open(initialProjectId);

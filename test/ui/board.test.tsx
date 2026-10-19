@@ -62,6 +62,7 @@ const projectProps = {
   onAddProject: () => {},
   onStart: () => {},
   onAttach: () => {},
+  onRefresh: async () => {},
 };
 
 describe("Board", () => {
@@ -75,6 +76,18 @@ describe("Board", () => {
     expect(frame).toContain("› #3");
     expect(frame).toContain("Later task");
     expect(frame).toContain("ready: cards the AI");
+  });
+
+  it("refreshes with r and says so until it finishes", async () => {
+    let finish = () => {};
+    const onRefresh = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    const { lastFrame, stdin } = render(<Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} onRefresh={onRefresh} />);
+    await tick();
+    stdin.write("r");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Refreshing…"));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    finish();
+    await vi.waitFor(() => expect(lastFrame()).not.toContain("Refreshing…"));
   });
 
   it("shows what a card's background agent is doing and opens it with a", async () => {

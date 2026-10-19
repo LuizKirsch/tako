@@ -8,7 +8,8 @@
 // for the agent and model (StartPicker), then hands the card to onStart,
 // which leaves the board to start the agent in the background. Cards with a
 // background agent show what it is doing; `a` opens its session (onAttach).
-// `p` switches to another project (ProjectPicker).
+// `p` switches to another project (ProjectPicker). `r` refreshes now
+// (onRefresh): syncs the agents and reloads the board.
 
 import { Box, Text, useApp, useInput, useStdin, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
@@ -41,6 +42,7 @@ export interface BoardProps {
   onAddProject: () => void;
   onStart: (card: Card, choice: StartChoice) => void;
   onAttach: (card: Card) => void;
+  onRefresh: () => Promise<void>;
 }
 
 const AGENT_BADGES: Record<AgentState, { text: string; color: string }> = {
@@ -103,6 +105,10 @@ export function Board(props: BoardProps) {
       if (input === "q" || key.escape) exit();
       if (input === "s") requestStart();
       if (input === "p") setChoosingProject(true);
+      if (input === "r") {
+        setNotice("Refreshing…");
+        void props.onRefresh().finally(() => setNotice((n) => (n === "Refreshing…" ? undefined : n)));
+      }
       if (input === "a" && selected) {
         if (tasks[selected.itemId]) props.onAttach(selected);
         else setNotice("No agent is running on this card.");
@@ -208,7 +214,7 @@ export function Board(props: BoardProps) {
           {selected?.url ?? " "}
         </Text>
       )}
-      <Text dimColor>←/→ column · ↑/↓ card · Enter open · s start · a agent · p projects · q quit</Text>
+      <Text dimColor>←/→ column · ↑/↓ card · Enter open · s start · a agent · r refresh · p projects · q quit</Text>
     </Box>
   );
 }
