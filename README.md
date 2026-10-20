@@ -1,6 +1,11 @@
+<p align="center">
+  <img src="docs/assets/banner.png" alt="tako, an orange octopus mascot" width="100%">
+</p>
+
 # tako
 
 A terminal tool that connects a GitHub Projects board to an AI coding agent.
+The name comes from タコ, Japanese for octopus.
 
 The goal is a full relay: pick a card from the board, prepare the branch, open
 the agent with the issue context, and deliver the work as a pull request.
