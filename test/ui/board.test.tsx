@@ -62,6 +62,7 @@ const projectProps = {
   onAddProject: () => {},
   onStart: () => {},
   onAttach: () => {},
+  onDismiss: async () => undefined,
   onRefresh: async () => {},
 };
 
@@ -102,7 +103,7 @@ describe("Board", () => {
     expect(onAttach.mock.calls[0]?.[0].itemId).toBe("I3");
 
     stdin.write(DOWN);
-    await vi.waitFor(() => expect(lastFrame()).toContain("No commits. Press a to ask the agent to fix it."));
+    await vi.waitFor(() => expect(lastFrame()).toContain("No commits. Press a to ask the agent to fix it, or d to dismiss the task."));
     expect(lastFrame()).toContain("delivery failed");
 
     stdin.write(LEFT);
@@ -110,6 +111,19 @@ describe("Board", () => {
     stdin.write("a");
     await vi.waitFor(() => expect(lastFrame()).toContain("No agent is running on this card."));
     expect(onAttach).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks a task with nothing to deliver and dismisses it with d", async () => {
+    const onDismiss = vi.fn(async (_card: Card) => undefined);
+    const { lastFrame, stdin } = render(
+      <Board title="Website / Status" columns={columns} drift={[]} loadComments={noComments} agents={agents} defaultAgentId="claude-code" {...projectProps} tasks={{ I3: { state: "done", error: "No commits.", empty: true } }} onDismiss={onDismiss} />,
+    );
+    expect(lastFrame()).toContain("nothing to deliver");
+    expect(lastFrame()).toContain("Press a to talk to the agent, or d to dismiss the task.");
+
+    stdin.write("d");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Task dismissed."));
+    expect(onDismiss.mock.calls[0]?.[0].itemId).toBe("I3");
   });
 
   it("moves between cards and columns with the arrow keys", async () => {

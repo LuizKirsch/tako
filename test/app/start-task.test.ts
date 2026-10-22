@@ -54,7 +54,7 @@ function setup(options: { repos?: Record<string, string>; cwd?: string; git?: Fa
   const start = new StartTask({
     files,
     git,
-    github,
+    board: github,
     agents: [agent],
     repoFiles: (root) => repoFiles.get(root) ?? repoFiles.set(root, new MemoryFiles()).get(root)!,
     cwd: options.cwd ?? "/somewhere/else",
@@ -144,7 +144,7 @@ describe("StartTask.launch", () => {
     expect(launch).toMatchObject({ cwd: worktree, model: "opus" });
     // The rules may exist only in the user's checkout, not in the worktree.
     expect(launch?.prompt).toContain(join("/code/webapp", ".tako/rules.md"));
-    expect(launch?.prompt).toContain("Work on GitHub issue #3 in octocat/webapp: Fix the login");
+    expect(launch?.prompt).toContain("Work on issue #3 in octocat/webapp: Fix the login");
     expect(launch?.prompt).toContain("Make it work.");
     expect(launch?.prompt).toContain("Check mobile too.");
     expect(launch?.name).toBe("tako #3 Fix the login");

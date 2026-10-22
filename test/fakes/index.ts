@@ -5,7 +5,8 @@ import type { ColumnField } from "../../src/domain/roles.js";
 import type { AgentAdapter, AgentSession, LaunchOptions } from "../../src/ports/agent.js";
 import type { Files } from "../../src/ports/files.js";
 import type { GitPort, LocalRepo } from "../../src/ports/git.js";
-import type { CardMove, GitHubPort, ProjectSummary, PullRequestInput } from "../../src/ports/github.js";
+import type { BoardSource, CardMove, ProjectSummary } from "../../src/ports/board-source.js";
+import type { CodeHost, PullRequestInput } from "../../src/ports/code-host.js";
 
 export class MemoryFiles implements Files {
   readonly files = new Map<string, string>();
@@ -24,7 +25,7 @@ export class MemoryFiles implements Files {
   }
 }
 
-export class FakeGitHub implements GitHubPort {
+export class FakeGitHub implements BoardSource, CodeHost {
   readonly moves: CardMove[] = [];
   readonly pullRequests: PullRequestInput[] = [];
   constructor(
@@ -36,8 +37,8 @@ export class FakeGitHub implements GitHubPort {
   async listCards(projectId: string) {
     return this.cardsByProject[projectId] ?? [];
   }
-  async listComments(contentId: string) {
-    return this.commentsByContent[contentId] ?? [];
+  async listComments(card: Card) {
+    return (card.contentId && this.commentsByContent[card.contentId]) || [];
   }
   async listProjects() {
     return this.projects;

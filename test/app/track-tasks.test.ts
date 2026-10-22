@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TASKS_FILE } from "../../src/app/task-store.js";
-import { attachTask, deliverCard, findPullRequest, syncTasks } from "../../src/app/track-tasks.js";
+import { attachTask, deliverCard, dismissTask, findPullRequest, syncTasks } from "../../src/app/track-tasks.js";
 import type { Card } from "../../src/domain/board.js";
 import { CONFIG_FILE, type ProjectConfig } from "../../src/domain/config.js";
 import type { RunningTask } from "../../src/domain/task.js";
@@ -18,6 +18,11 @@ const project: ProjectConfig = {
   baseBranch: "main",
 };
 
+const projectWithBlocked: ProjectConfig = {
+  ...project,
+  roles: { ...project.roles, blocked: { optionId: "o-blocked", name: "Blocked" } },
+};
+
 const task = (itemId: string, sessionId: string, extra: Partial<RunningTask> = {}): RunningTask => ({
   itemId,
   projectId: "PVT_1",
@@ -32,15 +37,15 @@ const task = (itemId: string, sessionId: string, extra: Partial<RunningTask> = {
   ...extra,
 });
 
-function setup(tasks: RunningTask[]) {
+function setup(tasks: RunningTask[], firstProject: ProjectConfig = project) {
   const files = new MemoryFiles({
-    [CONFIG_FILE]: JSON.stringify({ version: 1, projects: [project], repos: { "octocat/webapp": "/code/webapp" } }),
+    [CONFIG_FILE]: JSON.stringify({ version: 1, projects: [firstProject], repos: { "octocat/webapp": "/code/webapp" } }),
     [TASKS_FILE]: JSON.stringify(tasks),
   });
   const github = new FakeGitHub([], {});
   const git = new FakeGit();
   const agent = fakeAgent("claude-code", true);
-  const deps = { files, github, git, agents: [agent], sleep: async () => {} };
+  const deps = { files, board: github, codeHost: github, git, agents: [agent], sleep: async () => {} };
   const followed = (): RunningTask[] => JSON.parse(files.files.get(TASKS_FILE) ?? "[]");
   return { deps, github, git, agent, followed };
 }
@@ -120,9 +125,9 @@ describe("syncTasks", () => {
     agent.sessionList.push({ id: "a", state: "done" });
     git.ahead["tako/I1"] = 0;
 
-    const error = "The branch tako/I1 has no commits ahead of main.";
-    await expect(syncTasks(deps)).resolves.toEqual({ states: { I1: { state: "done", error } }, delivered: [] });
-    expect(followed()[0]?.error).toBe(error);
+    const error = "The agent made no commits on tako/I1: nothing to deliver.";
+    await expect(syncTasks(deps)).resolves.toEqual({ states: { I1: { state: "done", error, empty: true } }, delivered: [] });
+    expect(followed()[0]).toMatchObject({ error, empty: true });
 
     // Still finished: no new attempt.
     git.ahead["tako/I1"] = 1;
@@ -132,9 +137,46 @@ describe("syncTasks", () => {
     // The user asked the agent to fix it: it works, then finishes again.
     agent.sessionList[0] = { id: "a", state: "working" };
     await expect(syncTasks(deps)).resolves.toEqual({ states: { I1: { state: "working" } }, delivered: [] });
+    expect(followed()[0]?.empty).toBeUndefined();
     agent.sessionList[0] = { id: "a", state: "done" };
     await expect(syncTasks(deps)).resolves.toMatchObject({ delivered: [{ url: expect.any(String) }] });
     expect(github.moves).toHaveLength(1);
+  });
+
+  it("dismisses a task: stops following it, stops the session and removes the worktree", async () => {
+    const { deps, agent, github, git, followed } = setup([task("I1", "a", { empty: true }), task("I2", "b")]);
+    git.worktrees.set("/code/webapp/.tako/worktrees/I1", "tako/I1");
+
+    await expect(dismissTask(deps, "I1")).resolves.toBeUndefined();
+    expect(followed().map((t) => t.itemId)).toEqual(["I2"]);
+    expect(agent.stopped).toEqual(["a"]);
+    expect(git.worktrees.size).toBe(0);
+    expect(github.moves).toEqual([]);
+  });
+
+  it("moves the card to blocked when the delivery fails", async () => {
+    const { deps, agent, github } = setup([task("I1", "a")], projectWithBlocked);
+    agent.sessionList.push({ id: "a", state: "done" });
+
+    await syncTasks(deps);
+    expect(github.moves).toEqual([{ projectId: "PVT_1", itemId: "I1", fieldId: "F1", optionId: "o-blocked" }]);
+  });
+
+  it("keeps the card where it is when the project has no blocked column", async () => {
+    const { deps, agent, github } = setup([task("I1", "a")]);
+    agent.sessionList.push({ id: "a", state: "done" });
+
+    await syncTasks(deps);
+    expect(github.moves).toEqual([]);
+  });
+
+  it("delivers to the delivery column, not blocked, when the work is ready", async () => {
+    const { deps, agent, github, git } = setup([task("I1", "a")], projectWithBlocked);
+    agent.sessionList.push({ id: "a", state: "done" });
+    git.ahead["tako/I1"] = 1;
+
+    await syncTasks(deps);
+    expect(github.moves.map((m) => m.optionId)).toEqual(["o-review"]);
   });
 
   it("reports a branch the agent never created", async () => {

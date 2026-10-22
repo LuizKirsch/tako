@@ -67,7 +67,7 @@ The wizard asks:
    | `ready` | Cards the AI is allowed to pick up | yes |
    | `in_progress` | Work in progress | yes |
    | `delivery` | Delivered, waiting for human review | yes |
-   | `blocked` | Missing information | no |
+   | `blocked` | A failed delivery, or work that needs information | no |
 
 4. The base branch for new branches and pull requests (default `main`).
 
@@ -109,6 +109,7 @@ asks the same questions as `tako init`, then opens the new project's board.
 | `s` | Start the selected card | Start this card |
 | `c` | | Create the pull request |
 | `a` | Open the card's agent session | |
+| `d` | Dismiss a task whose delivery failed | |
 | `p` | Switch or add a project | |
 | `Esc` | Quit | Back to the board |
 | `q` | Quit | Quit |
@@ -163,10 +164,11 @@ tako then starts the agent in the background:
    `Closes #<number>`) and moves the card to your `delivery` column. Then it
    stops the session and removes the worktree; the branch stays, it belongs
    to the pull request. A worktree with uncommitted changes is kept and
-   reported. If the branch has no commits or the push fails, the card stays
-   and shows `delivery failed` with the reason: press `a`, ask the agent to
-   fix it, and tako delivers again when it finishes, or press `c` in the
-   card's details.
+   reported. If the branch has no commits, the push fails or GitHub refuses
+   the pull request, the card moves to your `blocked` column (when you mapped
+   one; otherwise it stays where it is) and shows the reason: press `a`, ask
+   the agent to fix it, and tako delivers again when it finishes, or press `c`
+   in the card's details.
 
 tako remembers its tasks in `tasks.json`, next to `config.json`, so closing
 tako loses nothing: the board catches up when it opens again.

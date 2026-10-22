@@ -20,7 +20,8 @@ Full design: @docs/design.md
 - `domain/` has no I/O: no execa, no fs, no network. Pure functions, unit tested.
 - Anything external goes through an interface in `ports/`; implementations live in `infra/`.
 - The UI never calls `infra/` directly.
-- GitHub access only through `GitHubPort` (`gh api graphql`). Never ask for, store or log tokens.
+- Boards only through `BoardSource`, pull requests only through `CodeHost`; the GitHub
+  implementation of both uses `gh api graphql`. Never ask for, store or log tokens.
 
 ## Conventions
 - Code, comments, README and commit messages in English. Talk to me in Brazilian Portuguese.

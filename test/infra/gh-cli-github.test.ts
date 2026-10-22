@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GhCliGitHub } from "../../src/infra/github/gh-cli-github.js";
 import type { GhResult, GhRunner } from "../../src/infra/github/gh-runner.js";
-import { GitHubError } from "../../src/ports/github.js";
+import { SourceError } from "../../src/ports/board-source.js";
+import type { Card } from "../../src/domain/board.js";
 
 const fixture = (name: string) => readFileSync(new URL(`../fixtures/github/${name}`, import.meta.url), "utf8");
 
@@ -70,6 +71,14 @@ describe("GhCliGitHub.listCards", () => {
 });
 
 describe("GhCliGitHub.listComments", () => {
+  const card: Card = { itemId: "PVTI_1", optionId: undefined, kind: "issue", title: "Fix", closed: false, body: "", labels: [], assignees: [] };
+
+  it("returns no comments for a draft, without calling gh", async () => {
+    const runner = fakeRunner({});
+    await expect(new GhCliGitHub(runner).listComments({ ...card, kind: "draft" })).resolves.toEqual([]);
+    expect(runner.calls).toEqual([]);
+  });
+
   it("reads author, body and date, and passes the issue id as a variable", async () => {
     const stdout = JSON.stringify({
       data: {
@@ -84,7 +93,7 @@ describe("GhCliGitHub.listComments", () => {
       },
     });
     const runner = fakeRunner({ stdout });
-    const comments = await new GhCliGitHub(runner).listComments("I_1");
+    const comments = await new GhCliGitHub(runner).listComments({ ...card, contentId: "I_1" });
 
     expect(comments).toEqual([
       { author: "alice", body: "First", createdAt: "2026-01-02T10:00:00Z" },
@@ -141,9 +150,9 @@ describe("GhCliGitHub errors", () => {
 
   it("keeps the original message for unknown failures", async () => {
     const error = await failWith({ stderr: "HTTP 502: Bad Gateway" }).catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(GitHubError);
-    expect((error as GitHubError).kind).toBe("unknown");
-    expect((error as GitHubError).message).toContain("HTTP 502");
+    expect(error).toBeInstanceOf(SourceError);
+    expect((error as SourceError).kind).toBe("unknown");
+    expect((error as SourceError).message).toContain("HTTP 502");
   });
 
   it("accepts partial data even when GitHub also reports errors", async () => {

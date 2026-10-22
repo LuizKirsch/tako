@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadBoard, loadComments } from "../../src/app/load-board.js";
+import { loadBoard } from "../../src/app/load-board.js";
 import type { Card } from "../../src/domain/board.js";
 import { CONFIG_FILE, type ProjectConfig, type TakoConfig } from "../../src/domain/config.js";
 import type { ColumnField } from "../../src/domain/roles.js";
@@ -48,9 +48,9 @@ const configured = (value: TakoConfig = config) => new MemoryFiles({ [CONFIG_FIL
 describe("loadBoard", () => {
   it("asks for init when there is no config or no project in it", async () => {
     const github = new FakeGitHub([], {});
-    await expect(loadBoard({ github, files: new MemoryFiles(), agents: [] })).resolves.toEqual({ status: "no_config" });
+    await expect(loadBoard({ board: github, files: new MemoryFiles(), agents: [] })).resolves.toEqual({ status: "no_config" });
     const empty = configured({ version: 1, projects: [] });
-    await expect(loadBoard({ github, files: empty, agents: [] })).resolves.toEqual({ status: "no_config" });
+    await expect(loadBoard({ board: github, files: empty, agents: [] })).resolves.toEqual({ status: "no_config" });
   });
 
   describe("with several projects", () => {
@@ -63,7 +63,7 @@ describe("loadBoard", () => {
     const lastOpened = (files: MemoryFiles) => JSON.parse(files.files.get(CONFIG_FILE) ?? "{}").lastProjectId;
 
     it("opens the last project used and lists all of them", async () => {
-      const result = await loadBoard({ github, files: configured(two), agents: [] });
+      const result = await loadBoard({ board: github, files: configured(two), agents: [] });
 
       if (result.status !== "ok") throw new Error(result.status);
       expect(result.project.project.title).toBe("Side project");
@@ -72,7 +72,7 @@ describe("loadBoard", () => {
 
     it("opens the requested project and remembers it for next time", async () => {
       const files = configured(two);
-      const result = await loadBoard({ github, files, agents: [] }, "PVT_1");
+      const result = await loadBoard({ board: github, files, agents: [] }, "PVT_1");
 
       if (result.status !== "ok") throw new Error(result.status);
       expect(result.project.project.id).toBe("PVT_1");
@@ -81,7 +81,7 @@ describe("loadBoard", () => {
     });
 
     it("falls back to the default when the requested project is gone", async () => {
-      const result = await loadBoard({ github, files: configured(two), agents: [] }, "PVT_gone");
+      const result = await loadBoard({ board: github, files: configured(two), agents: [] }, "PVT_gone");
 
       if (result.status !== "ok") throw new Error(result.status);
       expect(result.project.project.id).toBe("PVT_2");
@@ -90,20 +90,20 @@ describe("loadBoard", () => {
     it("does not rewrite the config when the last project is opened again", async () => {
       const files = configured(two);
       const before = files.files.get(CONFIG_FILE);
-      await loadBoard({ github, files, agents: [] });
+      await loadBoard({ board: github, files, agents: [] });
       expect(files.files.get(CONFIG_FILE)).toBe(before);
     });
   });
 
   it("reports an invalid config", async () => {
     const files = new MemoryFiles({ [CONFIG_FILE]: "{" });
-    const result = await loadBoard({ github: new FakeGitHub([], {}), files, agents: [] });
+    const result = await loadBoard({ board: new FakeGitHub([], {}), files, agents: [] });
     expect(result.status).toBe("invalid_config");
   });
 
   it("groups the project cards into the configured columns", async () => {
     const github = new FakeGitHub([], { PVT_1: [status] }, { PVT_1: cards });
-    const result = await loadBoard({ github, files: configured(), agents: [] });
+    const result = await loadBoard({ board: github, files: configured(), agents: [] });
 
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.drift).toEqual([]);
@@ -117,7 +117,7 @@ describe("loadBoard", () => {
   it("still opens, with drift, when a mapped column was removed", async () => {
     const shrunk = { ...status, options: status.options.filter((o) => o.id !== "o-review") };
     const github = new FakeGitHub([], { PVT_1: [shrunk] }, { PVT_1: cards });
-    const result = await loadBoard({ github, files: configured(), agents: [] });
+    const result = await loadBoard({ board: github, files: configured(), agents: [] });
 
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.drift).toMatchObject([{ kind: "role_option_missing", role: "delivery" }]);
@@ -127,28 +127,15 @@ describe("loadBoard", () => {
   it("offers only the agents installed on this machine", async () => {
     const github = new FakeGitHub([], { PVT_1: [status] }, { PVT_1: cards });
     const agents = [fakeAgent("claude-code", true), fakeAgent("codex", false)];
-    const result = await loadBoard({ github, files: configured(), agents });
+    const result = await loadBoard({ board: github, files: configured(), agents });
 
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.agents.map((a) => a.id)).toEqual(["claude-code"]);
   });
 
-  it("loads the comments of an issue card", async () => {
-    const comment = { author: "alice", body: "Looks good", createdAt: "2026-01-02T10:00:00Z" };
-    const github = new FakeGitHub([], {}, {}, { I_1: [comment] });
-    const card = cards[0]!;
-    await expect(loadComments(github, { ...card, contentId: "I_1" })).resolves.toEqual([comment]);
-  });
-
-  it("returns no comments for a draft, without calling GitHub", async () => {
-    const github = new FakeGitHub([], {});
-    github.listComments = () => Promise.reject(new Error("should not be called"));
-    await expect(loadComments(github, { ...cards[0]!, kind: "draft" })).resolves.toEqual([]);
-  });
-
   it("has no columns when the column field itself is gone", async () => {
     const github = new FakeGitHub([], { PVT_1: [] }, { PVT_1: cards });
-    const result = await loadBoard({ github, files: configured(), agents: [] });
+    const result = await loadBoard({ board: github, files: configured(), agents: [] });
 
     if (result.status !== "ok") throw new Error(result.status);
     expect(result.drift).toEqual([{ kind: "field_missing", fieldName: "Status" }]);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InitProject, type InitChoices } from "../../src/app/init-project.js";
 import type { ColumnField } from "../../src/domain/roles.js";
-import type { ProjectSummary } from "../../src/ports/github.js";
+import type { ProjectSummary } from "../../src/ports/board-source.js";
 import { FakeGitHub, MemoryFiles, fakeAgent } from "../fakes/index.js";
 
 const project: ProjectSummary = {
@@ -37,7 +37,7 @@ const choices: InitChoices = {
 
 function setup(files = new MemoryFiles()) {
   const init = new InitProject({
-    github: new FakeGitHub([project], { PVT_1: [status] }),
+    board: new FakeGitHub([project], { PVT_1: [status] }),
     files,
     agents: [fakeAgent("claude-code", true), fakeAgent("codex", false)],
   });

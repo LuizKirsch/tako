@@ -57,7 +57,7 @@ describe("buildTaskPrompt", () => {
       rulesFile: ".tako/rules.md",
     });
 
-    expect(prompt).toContain("Work on GitHub issue #3 in octocat/webapp: Corrigir a página de login");
+    expect(prompt).toContain("Work on issue #3 in octocat/webapp: Corrigir a página de login");
     expect(prompt).toContain("on the branch `tako/3-corrigir-a-pagina-de-login` (from `main`)");
     expect(prompt).toContain("Follow the repository's own instructions first (`CLAUDE.md`, `AGENTS.md`");
     expect(prompt).toContain("Then follow the rules in `.tako/rules.md`");
