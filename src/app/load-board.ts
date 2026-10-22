@@ -6,7 +6,7 @@
 // When the board changed after the project was added (drift), the board still
 // opens, read-only, and the UI explains what to fix.
 
-import { buildBoard, type BoardColumn, type Card, type Comment } from "../domain/board.js";
+import { buildBoard, type BoardColumn } from "../domain/board.js";
 import {
   chooseProject,
   detectConfigDrift,
@@ -17,12 +17,12 @@ import {
 } from "../domain/config.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
-import type { GitHubPort } from "../ports/github.js";
+import type { BoardSource } from "../ports/board-source.js";
 import { installedAgents } from "./agents.js";
 import { loadConfig, saveConfig } from "./config-file.js";
 
 export interface BoardDeps {
-  github: GitHubPort;
+  board: BoardSource;
   files: Files; // rooted at the tako config directory
   agents: readonly AgentAdapter[];
 }
@@ -55,8 +55,8 @@ export async function loadBoard(deps: BoardDeps, projectId?: string): Promise<Bo
   }
 
   const [fields, cards, agents] = await Promise.all([
-    deps.github.listColumnFields(project.project.id),
-    deps.github.listCards(project.project.id, project.columnField.id),
+    deps.board.listColumnFields(project.project.id),
+    deps.board.listCards(project.project.id, project.columnField.id),
     installedAgents(deps.agents),
   ]);
 
@@ -66,10 +66,4 @@ export async function loadBoard(deps: BoardDeps, projectId?: string): Promise<Bo
   const columns = field ? buildBoard(field, project.roles, cards) : [];
   const projects = config.projects.map((p) => p.project);
   return { status: "ok", project, projects, columns, drift, agents };
-}
-
-// Comments of one card, loaded when the card is opened.
-// Drafts are not issues yet, so they have no comments.
-export async function loadComments(github: GitHubPort, card: Card): Promise<Comment[]> {
-  return card.contentId ? github.listComments(card.contentId) : [];
 }

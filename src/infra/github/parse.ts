@@ -6,7 +6,7 @@
 
 import type { Card, Comment } from "../../domain/board.js";
 import type { ColumnField } from "../../domain/roles.js";
-import type { ProjectSummary } from "../../ports/github.js";
+import type { ProjectSummary } from "../../ports/board-source.js";
 
 type Raw = Record<string, unknown>;
 

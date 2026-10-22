@@ -6,9 +6,9 @@
 
 import { join } from "node:path";
 import { InitProject } from "./app/init-project.js";
-import { loadBoard, loadComments } from "./app/load-board.js";
+import { loadBoard } from "./app/load-board.js";
 import { StartTask } from "./app/start-task.js";
-import { attachTask, deliverCard, findPullRequest, syncTasks } from "./app/track-tasks.js";
+import { attachTask, deliverCard, dismissTask, findPullRequest, syncTasks } from "./app/track-tasks.js";
 import { CONFIG_FILE } from "./domain/config.js";
 import { AGENTS } from "./infra/agents/registry.js";
 import { configDir } from "./infra/fs/config-dir.js";
@@ -26,7 +26,9 @@ const USAGE = `Usage:
 // The config lives outside any repository, so tako works from any folder.
 const dir = configDir();
 const configPath = join(dir, CONFIG_FILE);
-const deps = { github: new GhCliGitHub(), files: new NodeFiles(dir), agents: AGENTS };
+// GitHub is both the board (Projects) and where pull requests go.
+const github = new GhCliGitHub();
+const deps = { board: github, codeHost: github, files: new NodeFiles(dir), agents: AGENTS };
 const git = new GitCli();
 
 const [command] = process.argv.slice(2);
@@ -46,12 +48,13 @@ switch (command) {
     process.exitCode = await runBoard({
       start: (request, agents) => runStart(start, request, agents),
       load: (projectId) => loadBoard(deps, projectId),
-      loadComments: (card) => loadComments(deps.github, card),
+      loadComments: (card) => deps.board.listComments(card),
       addProject: () => runAddProject(new InitProject(deps), configPath),
       sync: () => syncTasks({ ...deps, git }),
       attach: (itemId) => attachTask({ ...deps, git }, itemId),
       findPullRequest: (card) => findPullRequest({ ...deps, git }, card),
       deliver: (card, project) => deliverCard({ ...deps, git }, card, project),
+      dismiss: (itemId) => dismissTask({ ...deps, git }, itemId),
       configPath,
     });
     break;

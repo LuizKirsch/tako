@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import type { Card, Comment } from "../../domain/board.js";
 import { branchName } from "../../domain/task.js";
 import type { Delivery } from "../../app/track-tasks.js";
-import type { PullRequestInfo } from "../../ports/github.js";
+import type { PullRequestInfo } from "../../ports/code-host.js";
 
 // Header, separators and help lines around the body.
 const CHROME_ROWS = 10;

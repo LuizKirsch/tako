@@ -8,6 +8,8 @@
 // for the agent and model (StartPicker), then hands the card to onStart,
 // which leaves the board to start the agent in the background. Cards with a
 // background agent show what it is doing; `a` opens its session (onAttach).
+// `d` dismisses a task whose delivery did not happen (onDismiss); its branch
+// stays in git.
 // `p` switches to another project (ProjectPicker). `r` refreshes now
 // (onRefresh): syncs the agents and reloads the board.
 
@@ -42,6 +44,8 @@ export interface BoardProps {
   onAddProject: () => void;
   onStart: (card: Card, choice: StartChoice) => void;
   onAttach: (card: Card) => void;
+  // Resolves with why the worktree was kept, if it was.
+  onDismiss: (card: Card) => Promise<string | undefined>;
   onRefresh: () => Promise<void>;
 }
 
@@ -52,6 +56,7 @@ const AGENT_BADGES: Record<AgentState, { text: string; color: string }> = {
   failed: { text: "✗ agent failed", color: "red" },
 };
 const DELIVERY_FAILED = { text: "✗ delivery failed", color: "red" };
+const NOTHING_TO_DELIVER = { text: "– nothing to deliver", color: "yellow" };
 
 export function Board(props: BoardProps) {
   const { title, columns, drift, loadComments, agents, defaultAgentId, tasks } = props;
@@ -108,6 +113,12 @@ export function Board(props: BoardProps) {
       if (input === "r") {
         setNotice("Refreshing…");
         void props.onRefresh().finally(() => setNotice((n) => (n === "Refreshing…" ? undefined : n)));
+      }
+      if (input === "d" && selected && tasks[selected.itemId]?.error) {
+        props.onDismiss(selected).then(
+          (leftover) => setNotice(leftover ?? "Task dismissed. Its worktree was removed; the card stays where it is."),
+          (error: unknown) => setNotice(error instanceof Error ? error.message : String(error)),
+        );
       }
       if (input === "a" && selected) {
         if (tasks[selected.itemId]) props.onAttach(selected);
@@ -205,9 +216,13 @@ export function Board(props: BoardProps) {
         <Text color="yellow" wrap="truncate-end">
           {notice}
         </Text>
+      ) : selected && tasks[selected.itemId]?.empty ? (
+        <Text color="yellow" wrap="truncate-end">
+          {tasks[selected.itemId]?.error} Press a to talk to the agent, or d to dismiss the task.
+        </Text>
       ) : selected && tasks[selected.itemId]?.error ? (
         <Text color="red" wrap="truncate-end">
-          {tasks[selected.itemId]?.error} Press a to ask the agent to fix it.
+          {tasks[selected.itemId]?.error} Press a to ask the agent to fix it, or d to dismiss the task.
         </Text>
       ) : (
         <Text dimColor wrap="truncate-end">
@@ -264,7 +279,7 @@ function ColumnView(props: ColumnViewProps) {
 function CardView({ card, selected, status }: { card: Card; selected: boolean; status: TaskStatus | undefined }) {
   const ref = card.kind === "draft" ? "draft" : `#${card.number ?? "?"}`;
   const tags = `${card.kind === "pull_request" ? " PR" : ""}${card.closed ? " closed" : ""}`;
-  const badge = status?.error ? DELIVERY_FAILED : status ? AGENT_BADGES[status.state] : undefined;
+  const badge = status?.empty ? NOTHING_TO_DELIVER : status?.error ? DELIVERY_FAILED : status ? AGENT_BADGES[status.state] : undefined;
   return (
     <Box flexDirection="column">
       <Text color={selected ? "cyan" : undefined} bold={selected} dimColor={card.closed && !selected} wrap="truncate-end">

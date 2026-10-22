@@ -7,6 +7,9 @@
 //                    up; then it is no longer followed. A session that
 //                    disappeared (removed by the user) is dropped.
 //   attachTask()  -> hands the terminal to a card's session, to answer it.
+//   dismissTask() -> stops following a card, cleaning up like a delivery.
+//                    For an agent that finished without commits (it decided
+//                    there was nothing to change): there is nothing to deliver.
 //   findPullRequest() / deliverCard()
 //                 -> the card details: the pull request of a card's branch,
 //                    and delivering it by hand when it was not delivered
@@ -20,6 +23,10 @@
 // attached and asked for a fix), the error is cleared and the next finish
 // delivers again. Every step is safe to run twice.
 //
+// It also moves the card to the blocked column, when the project has one:
+// the work needs a human, and the board shows where it stopped. Without a
+// blocked column, the card stays where it is and the board shows the error.
+//
 // A project workflow can move the card right after tako does (e.g.
 // "Pull request linked to issue", which reacts to the new pull request), so
 // the card is checked for a few seconds after the move and moved back.
@@ -32,13 +39,15 @@ import { branchName, worktreeDir, type RunningTask, type TaskStatus } from "../d
 import type { AgentAdapter, AgentSession } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
 import type { GitPort } from "../ports/git.js";
-import type { CardMove, GitHubPort, PullRequestInfo } from "../ports/github.js";
+import type { BoardSource, CardMove } from "../ports/board-source.js";
+import type { CodeHost, PullRequestInfo } from "../ports/code-host.js";
 import { loadConfig } from "./config-file.js";
 import { loadTasks, saveTasks } from "./task-store.js";
 
 export interface TrackDeps {
   files: Files; // rooted at the tako config directory
-  github: GitHubPort;
+  board: BoardSource;
+  codeHost: CodeHost;
   git: GitPort;
   agents: readonly AgentAdapter[];
   sleep?: (ms: number) => Promise<void>; // tests skip the waits
@@ -80,26 +89,33 @@ export async function syncTasks(deps: TrackDeps): Promise<SyncResult> {
     const state = session?.state ?? "working";
 
     if (state !== "done" && task.error) {
-      task = { ...task, error: undefined };
+      task = { ...task, error: undefined, empty: undefined };
       changed = true;
     }
     if (state === "done" && !task.error) {
       changed = true;
+      const project = projects.find((p) => p.project.id === task.projectId);
       try {
-        const project = projects.find((p) => p.project.id === task.projectId);
         result.delivered.push(await deliver(deps, task, project));
         continue;
       } catch (error) {
-        task = { ...task, error: error instanceof Error ? error.message : String(error) };
+        task = {
+          ...task,
+          error: error instanceof Error ? error.message : String(error),
+          ...(error instanceof NothingToDeliver && { empty: true }),
+        };
+        await block(deps, task, project);
       }
     }
     kept.push(task);
-    result.states[task.itemId] = task.error ? { state, error: task.error } : { state };
+    result.states[task.itemId] = task.error ? { state, error: task.error, ...(task.empty && { empty: true }) } : { state };
   }
 
   if (changed) await saveTasks(deps.files, kept);
   return result;
 }
+
+export class NothingToDeliver extends Error {}
 
 // Push, pull request, then the card: in that order, so the card only moves
 // once the work is on GitHub. Then the session and the worktree go away.
@@ -109,11 +125,11 @@ async function deliver(deps: TrackDeps, task: RunningTask, project: ProjectConfi
 
   const ahead = await deps.git.commitsAhead(task.root, base, task.branch);
   if (ahead === undefined) throw new Error(`The agent did not create the branch ${task.branch}.`);
-  if (ahead === 0) throw new Error(`The branch ${task.branch} has no commits ahead of ${base}.`);
+  if (ahead === 0) throw new NothingToDeliver(`The agent made no commits on ${task.branch}: nothing to deliver.`);
 
   await deps.git.push(task.root, task.branch);
   const closes = task.number === undefined ? "" : `Closes #${task.number}\n\n`;
-  const url = await deps.github.openPullRequest({
+  const url = await deps.codeHost.openPullRequest({
     repo: task.repo,
     base,
     head: task.branch,
@@ -133,6 +149,21 @@ async function deliver(deps: TrackDeps, task: RunningTask, project: ProjectConfi
   return { url, leftover: await cleanUp(deps, task) };
 }
 
+// A failed delivery is work that needs a human: the card goes to the blocked
+// column, when the user mapped one. Best effort: the task keeps the error
+// either way, so the board still explains why the delivery did not happen.
+async function block(deps: TrackDeps, task: RunningTask, project: ProjectConfig | undefined): Promise<void> {
+  const blocked = project?.roles.blocked;
+  if (!project || !blocked) return;
+  const move: CardMove = {
+    projectId: task.projectId,
+    itemId: task.itemId,
+    fieldId: project.columnField.id,
+    optionId: blocked.optionId,
+  };
+  await deps.board.moveCard(move).catch(() => undefined);
+}
+
 // GitHub runs project workflows about a second after the pull request opens
 // (seen on a real board). ponytail: a fixed ~10 s window and a full
 // listCards per check; read the single item if boards get big.
@@ -141,12 +172,12 @@ const RECHECK_EVERY_MS = 2000;
 
 async function keepInColumn(deps: TrackDeps, move: CardMove): Promise<void> {
   const sleep = deps.sleep ?? ((ms: number) => setTimeout(ms));
-  await deps.github.moveCard(move);
+  await deps.board.moveCard(move);
   for (let i = 0; i < RECHECKS; i++) {
     await sleep(RECHECK_EVERY_MS);
-    const card = (await deps.github.listCards(move.projectId, move.fieldId)).find((c) => c.itemId === move.itemId);
+    const card = (await deps.board.listCards(move.projectId, move.fieldId)).find((c) => c.itemId === move.itemId);
     // A card that is gone (archived, deleted) has nowhere to go back to.
-    if (card && card.optionId !== move.optionId) await deps.github.moveCard(move);
+    if (card && card.optionId !== move.optionId) await deps.board.moveCard(move);
   }
 }
 
@@ -171,8 +202,18 @@ export async function attachTask(deps: TrackDeps, itemId: string): Promise<void>
   if (task && agent) await agent.attach(task.sessionId);
 }
 
+// Resolves with why the worktree was kept, if it was (see cleanUp). The card
+// stays where it is.
+export async function dismissTask(deps: TrackDeps, itemId: string): Promise<string | undefined> {
+  const tasks = await loadTasks(deps.files);
+  const task = tasks.find((t) => t.itemId === itemId);
+  if (!task) return undefined;
+  await saveTasks(deps.files, tasks.filter((t) => t !== task));
+  return cleanUp(deps, task);
+}
+
 export async function findPullRequest(deps: TrackDeps, card: Card): Promise<PullRequestInfo | undefined> {
-  return card.repo ? deps.github.findPullRequest(card.repo, branchName(card)) : undefined;
+  return card.repo ? deps.codeHost.findPullRequest(card.repo, branchName(card)) : undefined;
 }
 
 // Delivers a card's branch like a finished task, and stops following the

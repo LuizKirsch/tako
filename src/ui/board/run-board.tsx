@@ -23,9 +23,9 @@ import type { StartRequest } from "../../app/start-task.js";
 import type { Delivery, SyncResult } from "../../app/track-tasks.js";
 import type { ProjectConfig } from "../../domain/config.js";
 import type { TaskStatus } from "../../domain/task.js";
-import type { PullRequestInfo } from "../../ports/github.js";
+import type { PullRequestInfo } from "../../ports/code-host.js";
 import type { Card, Comment } from "../../domain/board.js";
-import { GitHubError } from "../../ports/github.js";
+import { SourceError } from "../../ports/board-source.js";
 import { Board } from "./Board.js";
 import type { AgentChoice } from "./StartPicker.js";
 
@@ -38,6 +38,7 @@ export interface RunBoardOptions {
   addProject: () => Promise<void>; // asks the tako init questions
   findPullRequest: (card: Card) => Promise<PullRequestInfo | undefined>;
   deliver: (card: Card, project: ProjectConfig) => Promise<Delivery>;
+  dismiss: (itemId: string) => Promise<string | undefined>;
   configPath: string; // shown when the config cannot be read
 }
 
@@ -129,7 +130,7 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
       result = await options.load(projectId);
     } catch (error) {
       if (quiet && draw) return;
-      if (!(error instanceof GitHubError)) {
+      if (!(error instanceof SourceError)) {
         app.unmount();
         throw error;
       }
@@ -188,6 +189,11 @@ async function boardSession(options: RunBoardOptions, initialProjectId?: string)
           session = { kind: "add_project" };
           app.unmount();
         }}
+          onDismiss={async (card) => {
+            const leftover = await options.dismiss(card.itemId);
+            void refresh();
+            return leftover;
+          }}
           onAttach={(card) => {
             session = { kind: "attach", itemId: card.itemId, projectId: project.project.id };
             app.unmount();

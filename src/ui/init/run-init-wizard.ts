@@ -19,7 +19,7 @@ import {
   type ColumnField,
   type RoleMapping,
 } from "../../domain/roles.js";
-import { GitHubError, isAuthFixable } from "../../ports/github.js";
+import { SourceError, isAuthFixable } from "../../ports/board-source.js";
 
 // Thrown when the user presses Ctrl+C / Esc in any prompt.
 class Cancelled extends Error {}
@@ -38,7 +38,7 @@ export async function runInitWizard(init: InitProject, configPath: string, fromB
       p.cancel("Init cancelled. Nothing was written.");
       return 1;
     }
-    if (error instanceof GitHubError) {
+    if (error instanceof SourceError) {
       p.log.error(error.message);
       p.outro("Fix the problem above and run tako init again.");
       return 1;
@@ -212,14 +212,14 @@ async function prepareWithAuthFix(init: InitProject) {
   try {
     return await load();
   } catch (error) {
-    if (!(error instanceof GitHubError) || !isAuthFixable(error.kind)) throw error;
+    if (!(error instanceof SourceError) || !isAuthFixable(error.kind)) throw error;
 
     p.log.warn(error.message);
     const fix = await ask(p.confirm({ message: "Run it now? gh will guide you in the browser.", initialValue: true }));
     if (!fix) throw new Cancelled();
 
     if (!(await init.fixAuth(error.kind))) {
-      throw new GitHubError(error.kind, "gh did not finish the authentication. Run the command above yourself.");
+      throw new SourceError(error.kind, "gh did not finish the authentication. Run the command above yourself.");
     }
     return load();
   }

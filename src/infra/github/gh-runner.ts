@@ -2,7 +2,7 @@
 // can be tested with canned outputs instead of a real `gh` and network.
 
 import { execa } from "execa";
-import { GitHubError } from "../../ports/github.js";
+import { SourceError } from "../../ports/board-source.js";
 
 export interface GhResult {
   exitCode: number;
@@ -48,8 +48,8 @@ function isNotFound(error: unknown): boolean {
   return (error as { code?: string }).code === "ENOENT";
 }
 
-function ghNotInstalled(): GitHubError {
-  return new GitHubError(
+function ghNotInstalled(): SourceError {
+  return new SourceError(
     "gh_not_installed",
     "GitHub CLI (gh) was not found. Install it from https://cli.github.com and run `gh auth login`.",
   );

@@ -1,10 +1,12 @@
-// GitHubPort implemented with `gh api graphql`.
+// BoardSource (GitHub Projects) and CodeHost (GitHub) implemented with
+// `gh api graphql`.
 //
 // Why `gh` instead of an HTTP client: authentication is already solved
 // (the user's `gh auth login`), and no token ever passes through tako.
 // Testability comes from the GhRunner seam, not from owning the HTTP layer.
 
-import { GitHubError, type AuthFixKind, type CardMove, type GitHubPort, type ProjectSummary, type PullRequestInfo, type PullRequestInput } from "../../ports/github.js";
+import { SourceError, type AuthFixKind, type BoardSource, type CardMove, type ProjectSummary } from "../../ports/board-source.js";
+import type { CodeHost, PullRequestInfo, PullRequestInput } from "../../ports/code-host.js";
 import type { ColumnField } from "../../domain/roles.js";
 import {
   execaGhInteractive,
@@ -22,7 +24,7 @@ interface GraphQLError {
   message?: string;
 }
 
-export class GhCliGitHub implements GitHubPort {
+export class GhCliGitHub implements BoardSource, CodeHost {
   constructor(
     private readonly run: GhRunner = execaGhRunner,
     private readonly runInteractive: InteractiveGhRunner = execaGhInteractive,
@@ -51,8 +53,10 @@ export class GhCliGitHub implements GitHubPort {
     return parseCards(await this.graphql(LIST_CARDS, { projectId }), fieldId);
   }
 
-  async listComments(contentId: string): Promise<Comment[]> {
-    return parseComments(await this.graphql(LIST_COMMENTS, { id: contentId }));
+  // Drafts are not issues yet, so they have no comments.
+  async listComments(card: Card): Promise<Comment[]> {
+    if (!card.contentId) return [];
+    return parseComments(await this.graphql(LIST_COMMENTS, { id: card.contentId }));
   }
 
   async moveCard(move: CardMove): Promise<void> {
@@ -71,7 +75,7 @@ export class GhCliGitHub implements GitHubPort {
       createPullRequest?: { pullRequest?: { url?: string } };
     };
     const url = created.createPullRequest?.pullRequest?.url;
-    if (!url) throw new GitHubError("unknown", "GitHub did not return the new pull request.");
+    if (!url) throw new SourceError("unknown", "GitHub did not return the new pull request.");
     return url;
   }
 
@@ -81,7 +85,7 @@ export class GhCliGitHub implements GitHubPort {
       repository?: { id?: string; pullRequests?: { nodes?: { number?: number; url?: string; state?: string }[] } } | null;
     };
     const repositoryId = data.repository?.id;
-    if (!repositoryId) throw new GitHubError("unknown", `Repository ${repo} was not found on GitHub.`);
+    if (!repositoryId) throw new SourceError("unknown", `Repository ${repo} was not found on GitHub.`);
     const node = data.repository?.pullRequests?.nodes?.[0];
     const pullRequest: PullRequestInfo | undefined =
       node?.url && node.number !== undefined
@@ -91,7 +95,7 @@ export class GhCliGitHub implements GitHubPort {
   }
 
   // Runs a query and returns `data`. Partial data (some nodes denied) is
-  // accepted; a response with no data at all becomes a typed GitHubError.
+  // accepted; a response with no data at all becomes a typed SourceError.
   private async graphql(query: string, variables: Record<string, string> = {}): Promise<unknown> {
     const args = ["api", "graphql", "-f", `query=${query}`];
     for (const [key, value] of Object.entries(variables)) args.push("-f", `${key}=${value}`);
@@ -110,20 +114,20 @@ export class GhCliGitHub implements GitHubPort {
 // Maps a failed call to something the UI can explain.
 // The matched strings come from gh/GitHub messages; unmatched cases fall back
 // to "unknown" with the original text, so nothing is hidden from the user.
-export function classifyFailure(result: GhResult, errors: GraphQLError[]): GitHubError {
+export function classifyFailure(result: GhResult, errors: GraphQLError[]): SourceError {
   const text = `${result.stderr}\n${errors.map((e) => e.message ?? "").join("\n")}`;
 
   if (errors.some((e) => e.type === "INSUFFICIENT_SCOPES") || /read:project|'project'/.test(text)) {
-    return new GitHubError(
+    return new SourceError(
       "missing_project_scope",
       "Your gh token cannot read Projects. Run: gh auth refresh -h github.com -s project",
     );
   }
   if (/gh auth login|not logged in/i.test(text)) {
-    return new GitHubError("not_authenticated", "You are not logged in to gh. Run: gh auth login");
+    return new SourceError("not_authenticated", "You are not logged in to gh. Run: gh auth login");
   }
   const detail = text.trim() || `gh exited with code ${result.exitCode}`;
-  return new GitHubError("unknown", `GitHub request failed: ${detail}`);
+  return new SourceError("unknown", `GitHub request failed: ${detail}`);
 }
 
 function parseJson(text: string): unknown {

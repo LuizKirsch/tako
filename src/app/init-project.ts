@@ -22,12 +22,12 @@ import {
 import { validateRoleMapping, type ColumnField, type RoleMapping, type RoleMappingError } from "../domain/roles.js";
 import type { AgentAdapter } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
-import type { AuthFixKind, GitHubPort, ProjectSummary } from "../ports/github.js";
+import type { AuthFixKind, BoardSource, ProjectSummary } from "../ports/board-source.js";
 import { installedAgents } from "./agents.js";
 import { loadConfig, saveConfig, type LoadConfigResult } from "./config-file.js";
 
 export interface InitDeps {
-  github: GitHubPort;
+  board: BoardSource;
   files: Files; // rooted at the tako config directory
   agents: readonly AgentAdapter[];
 }
@@ -58,7 +58,7 @@ export class InitProject {
   async prepare(): Promise<InitContext> {
     // Independent calls run in parallel: the GitHub request is the slow one.
     const [projects, agents, existingConfig] = await Promise.all([
-      this.deps.github.listProjects(),
+      this.deps.board.listProjects(),
       installedAgents(this.deps.agents),
       loadConfig(this.deps.files),
     ]);
@@ -66,11 +66,11 @@ export class InitProject {
   }
 
   fixAuth(kind: AuthFixKind): Promise<boolean> {
-    return this.deps.github.fixAuth(kind);
+    return this.deps.board.fixAuth(kind);
   }
 
   columnFields(projectId: string): Promise<ColumnField[]> {
-    return this.deps.github.listColumnFields(projectId);
+    return this.deps.board.listColumnFields(projectId);
   }
 
   validateRoles(field: ColumnField, roles: RoleMapping): RoleMappingError[] {

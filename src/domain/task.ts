@@ -58,12 +58,16 @@ export interface RunningTask {
   number?: number;
   title: string;
   error?: string; // why the last delivery failed
+  // The agent finished without commits: nothing to deliver. The user talks to
+  // it again or dismisses the task.
+  empty?: boolean;
 }
 
 // What the board shows on a followed card.
 export interface TaskStatus {
   state: AgentState;
   error?: string;
+  empty?: boolean; // see RunningTask.empty
 }
 
 export interface TaskPromptInput {
@@ -93,7 +97,7 @@ export const REPO_CONVENTION_SOURCES = [
 export function buildTaskPrompt({ card, comments, baseBranch, rulesFile }: TaskPromptInput): string {
   const ref = `#${card.number ?? "?"}`;
   const lines = [
-    `Work on GitHub issue ${ref} in ${card.repo ?? "this repository"}: ${card.title}`,
+    `Work on issue ${ref} in ${card.repo ?? "this repository"}: ${card.title}`,
     ...(card.url ? [card.url] : []),
     "",
     "## How to work",

@@ -21,16 +21,15 @@ import { branchName, buildTaskPrompt, sameRepo, worktreeDir } from "../domain/ta
 import type { AgentAdapter } from "../ports/agent.js";
 import type { Files } from "../ports/files.js";
 import type { GitPort } from "../ports/git.js";
-import type { GitHubPort } from "../ports/github.js";
+import type { BoardSource } from "../ports/board-source.js";
 import { RECOMMENDED_RULES, RULES_FILE } from "../templates/recommended-rules.js";
 import { loadConfig, saveConfig } from "./config-file.js";
-import { loadComments } from "./load-board.js";
 import { loadTasks, saveTasks } from "./task-store.js";
 
 export interface StartDeps {
   files: Files; // rooted at the tako config directory
   git: GitPort;
-  github: GitHubPort;
+  board: BoardSource;
   agents: readonly AgentAdapter[];
   repoFiles: (root: string) => Files; // files inside a repository
   cwd: string; // where tako was started
@@ -88,7 +87,7 @@ export class StartTask {
     // Required by parseConfig; the check only satisfies the type.
     const target = project.roles.in_progress;
     if (!target) throw new Error("This project has no in_progress column. Run `tako init` again.");
-    await this.deps.github.moveCard({
+    await this.deps.board.moveCard({
       projectId: project.project.id,
       itemId: card.itemId,
       fieldId: project.columnField.id,
@@ -107,7 +106,7 @@ export class StartTask {
     const worktree = join(root, worktreeDir(branch));
     await this.deps.git.addWorktree(root, worktree, branch, project.baseBranch);
 
-    const comments = await loadComments(this.deps.github, card);
+    const comments = await this.deps.board.listComments(card);
     const rulesFile = join(root, RULES_FILE);
     const prompt = buildTaskPrompt({ card, comments, baseBranch: project.baseBranch, rulesFile });
     const name = `tako #${card.number ?? "?"} ${card.title}`;
